@@ -1,8 +1,11 @@
-<h1 align="center"> Hey, I'm <strong>sxwik</strong></h1>
+<h1 align="center">👋 Hey, I'm <strong>sxwik</strong></h1>
 
 <p align="center">
-  <img src="https://readme-typing-svg.herokuapp.com?size=22&duration=4000&color=00F7FF&center=true&vCenter=true&width=440&lines=Building+chess+engines;Learning+C++%2C+AI%2C+and+systems;Founder+of+TacoEngine;Breaking+CPUs+since+2025" />
+  <img src="https://img.shields.io/badge/Building-TacoEngine-blueviolet?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/C++-Developer-informational?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/AI-Explorer-success?style=for-the-badge" />
 </p>
+
 
 ---
 
