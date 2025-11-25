@@ -1,4 +1,60 @@
-## Hi there 👋
+<h1 align="center"> Hey, I'm <strong>sxwik</strong></h1>
+
+<p align="center">
+  <img src="https://readme-typing-svg.herokuapp.com?size=22&duration=4000&color=00F7FF&center=true&vCenter=true&width=440&lines=Building+chess+engines;Learning+C++%2C+AI%2C+and+systems;Founder+of+TacoEngine;Breaking+CPUs+since+2025" />
+</p>
+
+---
+
+##  About Me
+-  Currently working on **TacoEngine** — an experimental chess AI built for high-performance clusters.  
+-  Interested in **C++**, **AI**, **neural evaluation**, and **system architecture**.  
+-  Constantly trying to build stuff stronger than GPUs want to handle.  
+-  Open to collaborating on chess engines, optimization, and cool weird computer science projects.
+
+---
+
+##  TacoEngine
+A custom chess engine I'm developing from scratch with:
+-  Cluster optimization  
+-  NNUE evaluation  
+-  High-performance search  
+-  Experimental pruning ideas  
+-  Open-source but protected development  
+
+> It's private **for now**, but it’s shaping into something special.
+
+---
+
+## 🛠️ Tech I Use
+**Languages:**  
+`C++` • `Python` • `JavaScript` • `HTML/CSS`  
+
+**Tools:**  
+`Git` • `VS Code` • `CMake` • `GCC/Clang`  
+
+**Interests:**  
+`Chess engines` • `Neural networks` • `Systems programming` • `Optimization`
+
+---
+
+## 📈 GitHub Stats
+<p align="center">
+  <img src="https://github-readme-stats.vercel.app/api?username=sxwik&show_icons=true&theme=tokyonight" height="165"/>
+  <img src="https://github-readme-stats.vercel.app/api/top-langs/?username=sxwik&layout=compact&theme=tokyonight" height="165"/>
+</p>
+
+---
+
+## 🌐 Connect With Me  
+📧 Email: **satwikbajpai23@gmail.com**
+
+---
+
+<p align="center">
+  <strong> Always building. Always learning. Always breaking limits. </strong>
+</p>
+
 
 <!--
 **sxwik/sxwik** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
