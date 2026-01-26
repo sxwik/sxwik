@@ -1,75 +1,90 @@
-<h1 align="center">👋 Hey, I'm <strong>sxwik</strong></h1>
+# sxwik
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Building-TacoEngine-blueviolet?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/C++-Developer-informational?style=for-the-badge" />
-  <img src="https://img.shields.io/badge/AI-Explorer-success?style=for-the-badge" />
-</p>
+Independent developer and researcher working at the intersection of **machine learning**, **scientific computing**, and **high-performance systems**.
 
+This repository serves as a professional profile and a host for long-term research-oriented projects.
 
 ---
 
-##  About Me
--  Currently working on **TacoEngine** — an experimental chess AI built for high-performance clusters.  
--  Interested in **C++**, **AI**, **neural evaluation**, and **system architecture**.  
--  Constantly trying to build stuff stronger than GPUs want to handle.  
--  Open to collaborating on chess engines, optimization, and cool weird computer science projects.
+## ASTRA-ML  
+**Astronomical Systems for Temporal Research and Analysis using Machine Learning**
+
+### Mission Statement
+
+ASTRA-ML is an open-source research initiative dedicated to the development of machine learning systems trained exclusively on space and astrophysical data.
+
+The mission of ASTRA-ML is to:
+- advance data-driven discovery in space science
+- apply modern machine learning techniques to large-scale astronomical datasets
+- identify patterns, anomalies, and correlations that are difficult to detect through traditional analysis
+- promote transparent, reproducible, and open scientific research
+
+ASTRA-ML is designed as a research tool to **assist scientific inquiry**, not to replace physical models or human interpretation.
 
 ---
 
-##  TacoEngine
-A custom chess engine I'm developing from scratch with:
--  Cluster optimization  
--  NNUE evaluation  
--  High-performance search  
--  Experimental pruning ideas  
--  Open-source but protected development  
+## Research Scope
 
-> It's private **for now**, but it’s shaping into something special.
+ASTRA-ML focuses on publicly available data derived from:
+- space missions and observatories
+- deep-space and astronomical surveys
+- solar and cosmic phenomena
+- spacecraft telemetry and scientific instrumentation
 
----
-
-## 🛠️ Tech I Use
-**Languages:**  
-`C++` • `Python` • `JavaScript` • `HTML/CSS`  
-
-**Tools:**  
-`Git` • `VS Code` • `CMake` • `GCC/Clang`  
-
-**Interests:**  
-`Chess engines` • `Neural networks` • `Systems programming` • `Optimization`
+The project explicitly excludes:
+- human-generated text or social data
+- Earth-centric datasets unrelated to space science
+- speculative or non-verifiable data sources
 
 ---
 
-## 📈 GitHub Stats
-<p align="center">
-  <img src="https://github-readme-stats.vercel.app/api?username=sxwik&show_icons=true&theme=tokyonight" height="165"/>
-  <img src="https://github-readme-stats.vercel.app/api/top-langs/?username=sxwik&layout=compact&theme=tokyonight" height="165"/>
-</p>
+## Research Objectives
+
+- anomaly and rare-event detection in astronomical and space-mission datasets
+- representation learning for high-dimensional scientific data
+- analysis of temporal and spatial patterns in cosmic phenomena
+- development of scalable and efficient ML pipelines for scientific use
 
 ---
 
-## 🌐 Connect With Me  
-📧 Email: **satwikbajpai23@gmail.com**
+## Methodology
+
+- emphasis on data integrity and preprocessing transparency
+- preference for interpretable and verifiable model outputs
+- physics-aware constraints where applicable
+- reproducible experiments with documented assumptions and limitations
+
+All results are treated as **hypotheses or indicators**, not conclusions.
 
 ---
 
-<p align="center">
-  <strong> Always building. Always learning. Always breaking limits. </strong>
-</p>
+## Project Status
 
+ASTRA-ML is currently in the **early research and infrastructure phase**, with active development focused on:
+- data acquisition and standardization
+- exploratory analysis
+- baseline models for anomaly detection
 
-<!--
-**sxwik/sxwik** is a ✨ _special_ ✨ repository because its `README.md` (this file) appears on your GitHub profile.
+---
 
-Here are some ideas to get you started:
+## Technical Focus
 
-- 🔭 I’m currently working on ...
-- 🌱 I’m currently learning ...
-- 👯 I’m looking to collaborate on ...
-- 🤔 I’m looking for help with ...
-- 💬 Ask me about ...
-- 📫 How to reach me: ...
-- 😄 Pronouns: ...
-- ⚡ Fun fact: ...
--->
+- Machine learning (computer vision, time-series analysis, unsupervised learning)
+- Scientific and numerical computing
+- High-performance and systems-level optimization
+- Data-centric research workflows
+- Physics-informed machine learning
+
+---
+
+## Collaboration
+
+Collaboration is welcome from individuals interested in:
+- research-driven machine learning
+- space and astrophysical data analysis
+- scientific computing and experimental systems
+
+Contributions are expected to follow professional research standards, including documentation, reproducibility, and clear methodology.
+
+---
+
