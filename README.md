@@ -1,229 +1,98 @@
-# Satwik Bajpai
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&height=160&color=0:0f172a,100:020617&text=Satwik%20Bajpai&fontColor=ffffff&fontAlignY=35&desc=AI%20ML%20Developer%20%7C%20Systems%20Builder&descAlignY=55"/>
+</p>
+
+<p align="center">
+  <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&size=22&duration=2500&pause=1000&color=94A3B8&center=true&vCenter=true&width=700&lines=Artificial+Intelligence+Systems;Machine+Learning+Engineering;Software+Architecture;Experimental+Software+Design;Performance+Focused+Applications;Scalable+System+Development"/>
+</p>
+
+---
 
 ## Profile
 
-AI/ML-focused developer building intelligent systems, experimental platforms, and performance-driven software. My work spans artificial intelligence, game development, custom operating system concepts, automation tooling, and scalable web applications. I design ambitious projects that emphasize clean architecture, high performance, and modern user experience.
-
-I specialize in creating AI-powered tools, advanced software environments, and interactive applications engineered for flexibility, efficiency, and scalability.
+AI/ML-focused developer building intelligent systems, experimental platforms, and performance-driven software.
+Focused on scalable architecture, clean engineering, and minimal high-performance applications.
 
 ---
 
-## Core Competencies
+## Areas of Work
 
-Artificial Intelligence and Machine Learning
-Game Development and Interactive Systems
-Full Stack Web Development
-Software Architecture and System Design
-Performance Optimization and Lightweight Applications
-Automation and Developer Tooling
-AI Integration and Multi-Model Systems
-Custom Software Platforms
-AI-powered Operating System Concepts
-Interactive UI Systems
+Artificial Intelligence
+Machine Learning Systems
+Software Architecture
 Experimental Software Engineering
-Real-time Processing Applications
-Client-side Performance Optimization
-Developer Experience Tooling
+Automation Platforms
+Performance Optimization
+Scalable Applications
+Advanced UI Systems
+Intelligent Tooling
+System Design
 
 ---
 
-## Technology Stack
+## Engineering Principles
 
-### Languages
-
-Python
-C++
-JavaScript
-HTML
-CSS
-
-### Frameworks & Tools
-
-Node.js
-Unity Engine
-Git
-GitHub
-VS Code
-REST APIs
-AI Model APIs
-Local AI inference pipelines
-Web-based UI engines
+Minimal design
+Performance-first architecture
+Modular systems
+Lightweight applications
+Scalable infrastructure
+Clean codebases
+Low overhead interfaces
+Experimental but practical systems
 
 ---
 
-## Specializations
+## Private Completed Work
 
-AI Chatbot Architecture
-Multi-model AI integration
-Game mechanics and system design
-AI-powered performance tools
-Custom OS architecture concepts
-Experimental UI/UX engineering
-Lightweight application design
-Automation pipelines
-Performance-focused frontend systems
-Interactive AI assistants
+AI system prototypes
+Experimental assistant architectures
+Automation frameworks
+Lightweight application engines
+Scalable backend structures
+AI-integrated UI systems
+Software environment concepts
+Performance optimization platforms
+Advanced system architecture designs
 
----
-
-## &#x20;
-
-## Private Completed Projects
-
-These projects are privately developed and not publicly released.
-
-  
-
-### Neurax
-
-AI-powered chatbot platform integrating multiple APIs and AI models into a single modular system. Designed with animated interface, fast responses, and scalable architecture.
-
-Features:
-
-* Multi-model AI routing
-* Animated chat UI
-* Modular architecture
-* Lightweight frontend
-* API chaining
-* Real-time responses
+All major work maintained privately.
 
 ---
 
-### Glitchborn
+## Activity
 
-Narrative-driven psychological 3D game focused on experimental mechanics and chaotic AI-driven gameplay. Designed for mid-range PC performance with immersive environment logic.
+<p align="center">
+  <img src="https://github-readme-stats.vercel.app/api?username=sxwik&show_icons=true&theme=tokyonight&hide_border=true&bg_color=00000000"/>
+</p>
 
-Features:
-
-* Sentient glitch protagonist
-* Psychological gameplay mechanics
-* Minimalist performance-friendly graphics
-* AI assistant interaction system
-* Room-based nonlinear design
-* Unity-based architecture
+<p align="center">
+  <img src="https://github-readme-streak-stats.herokuapp.com/?user=sxwik&theme=tokyonight&hide_border=true&background=00000000"/>
+</p>
 
 ---
 
-### Newrex
+## Contribution Graph
 
-AI-powered operating system concept designed for gaming, customization, and performance optimization. Built as a lightweight environment with integrated AI tooling.
-
-Features:
-
-* AI frame generation
-* AI graphics enhancement
-* Built-in game recorder
-* Minimal pop-ups UI
-* High customizability
-* Game-focused kernel design concept
-* Performance-first architecture
+<p align="center">
+  <img src="https://github-readme-activity-graph.vercel.app/graph?username=sxwik&theme=tokyo-night&hide_border=true&bg_color=00000000"/>
+</p>
 
 ---
 
-### SmoothLive AI
+## Tech
 
-Lightweight AI performance toolkit for gaming optimization and real-time enhancement.
-
-Features:
-
-* AI frame generation (lightweight)
-* Resolution auto-scaling
-* Game Turbo popup
-* Real-time voice changing
-* Performance-based optimization
-* Minimal UI footprint
-* Low memory usage design
+<p align="center">
+  <img src="https://skillicons.dev/icons?i=python,cpp,js,html,css,nodejs,unity,git,github,vscode&theme=dark"/>
+</p>
 
 ---
 
-## SmoothLive AI Engine Core
+## Views
 
-Internal engine prototype for lightweight AI enhancement system.
+<p align="center">
+  <img src="https://komarev.com/ghpvc/?username=sxwik&color=0e75b6&style=flat&label=Profile+Views"/>
+</p>
 
-* Frame interpolation experiments
-* AI resolution scaler
-* performance monitoring layer
-* UI overlay system
-* GPU-aware optimization logic
-
----
-
-### Neurax Multi-Core AI Router
-
-Private backend architecture for AI model routing.
-
-* Multi API switching
-* Response ranking logic
-* fallback model system
-* lightweight backend pipeline
-* conversation memory system
-
----
-
-### Glitchborn AI Behavior System
-
-Internal AI system for psychological gameplay.
-
-* AI assistant personality engine
-* chaos-driven event logic
-* player manipulation mechanics
-* environment-trigger system
-* adaptive dialogue logic
-
----
-
-### Newrex Kernel Concept
-
-Private system architecture planning.
-
-* gaming-focused OS layout
-* AI acceleration layer
-* custom UI shell
-* performance scheduler concept
-* modular system services
-
----
-
-## Development Focus
-
-Artificial Intelligence Applications
-AI Chatbots and Assistants
-Game Systems and Mechanics
-Performance Optimization Software
-Experimental UI/UX Applications
-Custom Software Platforms
-Automation Tools
-Scalable Web Applications
-AI Operating System Concepts
-Interactive AI Systems
-
----
-
-## Architecture Principles
-
-Clean modular codebases
-Performance-first engineering
-Scalable system design
-Lightweight application footprint
-Modern UI with minimal overhead
-Experimental but practical architecture
-Efficient memory usage
-Fast startup performance
-Minimal dependency design
-
----
-
-## Current Focus
-
-Building AI-powered applications
-Developing experimental game systems
-Designing performance-focused software
-Creating intelligent automation tools
-Working on scalable AI architecture
-Developing lightweight AI engines
-
----
-
-## GitHub
-
-https://github.com/sxwik
+<p align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&height=120&section=footer&color=0:020617,100:0f172a"/>
+</p>
