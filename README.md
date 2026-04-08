@@ -1,90 +1,99 @@
-# sxwik
+# Satwik Bajpai
 
-Independent developer and researcher working at the intersection of **machine learning**, **scientific computing**, and **high-performance systems**.
+AI/ML Developer • Systems Builder • Game Developer • Web Developer
 
-This repository serves as a professional profile and a host for long-term research-oriented projects.
-
----
-
-## ASTRA-ML  
-**Astronomical Systems for Temporal Research and Analysis using Machine Learning**
-
-### Mission Statement
-
-ASTRA-ML is an open-source research initiative dedicated to the development of machine learning systems trained exclusively on space and astrophysical data.
-
-The mission of ASTRA-ML is to:
-- advance data-driven discovery in space science
-- apply modern machine learning techniques to large-scale astronomical datasets
-- identify patterns, anomalies, and correlations that are difficult to detect through traditional analysis
-- promote transparent, reproducible, and open scientific research
-
-ASTRA-ML is designed as a research tool to **assist scientific inquiry**, not to replace physical models or human interpretation.
+<p align="center">
+  <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&size=26&duration=2500&pause=900&color=58A6FF&center=true&vCenter=true&width=800&lines=AI+%2F+ML+Developer;Full+Stack+Builder;Game+Developer+%7C+Engine+Design;Systems+Programming;Building+Experimental+Software;High+Performance+Applications" alt="Typing SVG" />
+</p>
 
 ---
 
-## Research Scope
+## Profile
 
-ASTRA-ML focuses on publicly available data derived from:
-- space missions and observatories
-- deep-space and astronomical surveys
-- solar and cosmic phenomena
-- spacecraft telemetry and scientific instrumentation
+I design and build intelligent systems, experimental software, and performance-focused applications. My work spans artificial intelligence, game development, operating systems concepts, and full-stack web applications. I focus on creating ambitious projects that combine clean architecture, strong UI/UX, and advanced functionality.
 
-The project explicitly excludes:
-- human-generated text or social data
-- Earth-centric datasets unrelated to space science
-- speculative or non-verifiable data sources
+I actively develop AI-powered tools, custom software environments, and interactive experiences designed for real-world performance and scalability.
 
 ---
 
-## Research Objectives
+## Core Expertise
 
-- anomaly and rare-event detection in astronomical and space-mission datasets
-- representation learning for high-dimensional scientific data
-- analysis of temporal and spatial patterns in cosmic phenomena
-- development of scalable and efficient ML pipelines for scientific use
-
----
-
-## Methodology
-
-- emphasis on data integrity and preprocessing transparency
-- preference for interpretable and verifiable model outputs
-- physics-aware constraints where applicable
-- reproducible experiments with documented assumptions and limitations
-
-All results are treated as **hypotheses or indicators**, not conclusions.
+Artificial Intelligence & Machine Learning
+Game Development and Interactive Systems
+Full Stack Web Development
+System Design and Software Architecture
+Performance Optimization
+Custom Tooling and Automation
+UI/UX Focused Application Design
+Experimental Software Engineering
 
 ---
 
-## Project Status
+## Technology Stack
 
-ASTRA-ML is currently in the **early research and infrastructure phase**, with active development focused on:
-- data acquisition and standardization
-- exploratory analysis
-- baseline models for anomaly detection
+<p align="center">
+  <img src="https://skillicons.dev/icons?i=python,cpp,js,html,css,nodejs,unity,git,github,vscode&theme=dark" />
+</p>
 
----
+Technologies I regularly work with:
 
-## Technical Focus
-
-- Machine learning (computer vision, time-series analysis, unsupervised learning)
-- Scientific and numerical computing
-- High-performance and systems-level optimization
-- Data-centric research workflows
-- Physics-informed machine learning
-
----
-
-## Collaboration
-
-Collaboration is welcome from individuals interested in:
-- research-driven machine learning
-- space and astrophysical data analysis
-- scientific computing and experimental systems
-
-Contributions are expected to follow professional research standards, including documentation, reproducibility, and clear methodology.
+Python
+C++
+JavaScript
+HTML / CSS
+Node.js
+Unity Engine
+Git / GitHub
+REST APIs
+AI Model Integration
 
 ---
 
+## Featured Projects
+
+Neurax
+AI-powered chatbot platform integrating multiple models and APIs with a clean animated interface.
+
+Glitchborn
+Narrative-driven 3D game built in Unity featuring psychological gameplay and experimental design.
+
+Newrex
+Highly customizable AI-powered operating system concept focused on performance and gaming.
+
+SmoothLive AI
+Lightweight AI performance toolkit with frame generation, resolution scaling, and game optimization.
+
+---
+
+## GitHub Statistics
+
+<p align="center">
+  <img src="https://github-readme-stats.vercel.app/api?username=YOUR_USERNAME&show_icons=true&theme=tokyonight&hide_border=true"/>
+</p>
+
+<p align="center">
+  <img src="https://github-readme-streak-stats.herokuapp.com/?user=YOUR_USERNAME&theme=tokyonight&hide_border=true"/>
+</p>
+
+---
+
+## Development Focus
+
+Artificial Intelligence Applications
+Game Engines and Gameplay Systems
+Performance Optimization Tools
+Custom Operating System Concepts
+Interactive Web Applications
+Automation and Developer Tools
+
+---
+
+## Philosophy
+
+I build ambitious projects that push technical boundaries. My focus is on performance, clean design, and innovative functionality. Every project is designed to be scalable, efficient, and technically distinct.
+
+---
+
+## Contact
+
+GitHub: https://github.com/sxwik
