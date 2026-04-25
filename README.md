@@ -1,98 +1,46 @@
-<p align="center">
-  <img src="https://capsule-render.vercel.app/api?type=waving&height=160&color=0:0f172a,100:020617&text=Satwik%20Bajpai&fontColor=ffffff&fontAlignY=35&desc=AI%20ML%20Developer%20%7C%20Systems%20Builder&descAlignY=55"/>
-</p>
+<div align="center">
+  <h1 align="center">Satwik Bajpai</h1>
+  <h4 align="center">Machine Learning Systems & Software Architecture</h4>
+  <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=400&size=15&duration=4000&pause=1000&color=94A3B8&center=true&vCenter=true&width=500&lines=Building+scalable+AI+infrastructure;Designing+high-performance+systems;Experimental+software+architecture" alt="Typing SVG" />
+</div>
 
-<p align="center">
-  <img src="https://readme-typing-svg.demolab.com?font=JetBrains+Mono&size=22&duration=2500&pause=1000&color=94A3B8&center=true&vCenter=true&width=700&lines=Artificial+Intelligence+Systems;Machine+Learning+Engineering;Software+Architecture;Experimental+Software+Design;Performance+Focused+Applications;Scalable+System+Development"/>
-</p>
+<br/>
 
----
+###  Philosophy
+> *Minimal design. Modular architecture. High-performance execution.*
+> 
+> I build intelligent systems and experimental software platforms, focusing on clean engineering, scalable infrastructure, and low-overhead interfaces.
 
-## Profile
+<br/>
 
-AI/ML-focused developer building intelligent systems, experimental platforms, and performance-driven software.
-Focused on scalable architecture, clean engineering, and minimal high-performance applications.
+###  Core Competencies
 
----
+- **Engineering:** System Architecture, Performance Optimization, Scalable Backend Structures.
+- **Domains:** Artificial Intelligence, ML Systems, Automation Frameworks.
+- **Tech Stack:**
+  <br/>
+  <br/>
+  <img src="https://skillicons.dev/icons?i=python,cpp,js,ts,nodejs,nextjs,vercel,firebase,cloudflare,unity,git,linux&theme=dark" />
 
-## Areas of Work
+<br/>
 
-Artificial Intelligence
-Machine Learning Systems
-Software Architecture
-Experimental Software Engineering
-Automation Platforms
-Performance Optimization
-Scalable Applications
-Advanced UI Systems
-Intelligent Tooling
-System Design
+###  Current Operations
 
----
+I am currently developing proprietary AI prototypes, automated system environments, and scalable backend architectures. Because my focus is on production-grade and experimental systems, **most major architectural work is maintained in private repositories.**
 
-## Engineering Principles
-
-Minimal design
-Performance-first architecture
-Modular systems
-Lightweight applications
-Scalable infrastructure
-Clean codebases
-Low overhead interfaces
-Experimental but practical systems
+<br/>
 
 ---
 
-## Private Completed Work
+###  Telemetry
 
-AI system prototypes
-Experimental assistant architectures
-Automation frameworks
-Lightweight application engines
-Scalable backend structures
-AI-integrated UI systems
-Software environment concepts
-Performance optimization platforms
-Advanced system architecture designs
+<div align="center">
+  <img src="https://github-readme-stats.vercel.app/api?username=sxwik&show_icons=true&theme=transparent&hide_border=true&title_color=E2E8F0&text_color=94A3B8&icon_color=38BDF8&bg_color=00000000" height="150" />
+  <img src="https://github-readme-streak-stats.herokuapp.com/?user=sxwik&theme=transparent&hide_border=true&title_color=E2E8F0&text_color=94A3B8&sideNums=94A3B8&sideLabels=E2E8F0&ring=38BDF8&fire=38BDF8&currStreakLabel=38BDF8&currStreakNum=E2E8F0&background=00000000" height="150" />
+</div>
 
-All major work maintained privately.
+<br/>
 
----
-
-## Activity
-
-<p align="center">
-  <img src="https://github-readme-stats.vercel.app/api?username=sxwik&show_icons=true&theme=tokyonight&hide_border=true&bg_color=00000000"/>
-</p>
-
-<p align="center">
-  <img src="https://github-readme-streak-stats.herokuapp.com/?user=sxwik&theme=tokyonight&hide_border=true&background=00000000"/>
-</p>
-
----
-
-## Contribution Graph
-
-<p align="center">
-  <img src="https://github-readme-activity-graph.vercel.app/graph?username=sxwik&theme=tokyo-night&hide_border=true&bg_color=00000000"/>
-</p>
-
----
-
-## Tech
-
-<p align="center">
-  <img src="https://skillicons.dev/icons?i=python,cpp,js,html,css,nodejs,unity,git,github,vscode&theme=dark"/>
-</p>
-
----
-
-## Views
-
-<p align="center">
-  <img src="https://komarev.com/ghpvc/?username=sxwik&color=0e75b6&style=flat&label=Profile+Views"/>
-</p>
-
-<p align="center">
-  <img src="https://capsule-render.vercel.app/api?type=waving&height=120&section=footer&color=0:020617,100:0f172a"/>
-</p>
+<div align="center">
+  <img src="https://komarev.com/ghpvc/?username=sxwik&color=38BDF8&style=flat-square&label=PROFILE+VIEWS" alt="Profile Views" />
+</div>
