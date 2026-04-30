@@ -12,7 +12,7 @@
 > I build intelligent systems and experimental software platforms, focusing on clean engineering, scalable infrastructure, and low-overhead interfaces.
 
 <br/>
-
+[![Visit NEWREX](https://img.shields.io/badge/Visit-NEWREX_Labs-c8ff00?style=for-the-badge&logo=firefox&logoColor=black)](https://newrexlabs.netlify.app/)
 ###  Core Competencies
 
 - **Engineering:** System Architecture, Performance Optimization, Scalable Backend Structures.
