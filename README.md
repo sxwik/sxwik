@@ -3,7 +3,7 @@
   <h4>Machine Learning Systems · Software Architecture</h4>
 
   <p>
-    <a href="https://newrexlabs.netlify.app/" target="_blank">
+    <a href="https://sxwik.github.io/NewrexLABS/" target="_blank">
       newrexlabs.netlify.app
     </a>
   </p>
