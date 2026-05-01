@@ -4,7 +4,7 @@
 
   <p>
     <a href="https://sxwik.github.io/NewrexLABS/" target="_blank">
-      newrexlabs.in
+      newrex.labs
     </a>
   </p>
 
