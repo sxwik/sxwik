@@ -26,7 +26,7 @@
 
 * **Systems:** Architecture, performance tuning, scalable backends
 * **Focus:** AI systems, automation, experimental builds
-* **Stack:** <br/> <br/> <img src="https://skillicons.dev/icons?i=python,cpp,js,ts,nodejs,nextjs,vercel,firebase,cloudflare,unity,git,linux&theme=dark" />
+* **Stack:** <br/> <br/>Python • JavaScript • Systems • AI • Infrastructure
 
 <br/>
 
