@@ -2,11 +2,6 @@
   <h1>Satwik Bajpai</h1>
   <h4>Machine Learning Systems · Software Architecture</h4>
 
-<p align="center">
-  <a href="https://sxwik.github.io/NewrexLABS/" target="_blank">newrex.labs</a>
-  &nbsp; / &nbsp;
-  <a href="https://sxwik.github.io/satwik-is-goat/" target="_blank">portfolio</a>
-</p>
 
   <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&size=14&duration=4000&pause=1000&color=94A3B8&center=true&vCenter=true&width=420&lines=Building+systems+that+usually+work;Optimizing+things+that+probably+shouldn't;Designing+architecture+I+won't+hate+later" />
 </div>
