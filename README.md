@@ -1,6 +1,6 @@
 <div align="center">
 
-# sxwik
+# Satwik Bajpai
 
 <sup>SYSTEMS · AI · FIRST PRINCIPLES</sup>
 
