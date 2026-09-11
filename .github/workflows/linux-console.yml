@@ -24,7 +24,6 @@ env:
   STATE: linux-state.img
   RAM: 256M
   VIRT_NETBOOT: https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/x86_64/netboot
-  KERNEL_VERSION: 6.18.35-0-virt
 
 jobs:
   run:
@@ -55,9 +54,6 @@ jobs:
             cmd="$COMMENT_COMMAND"
           fi
 
-          # GitHub issue comments arrive with a trailing newline. Remove only
-          # trailing CR/LF so a normal one-line shell command is accepted while
-          # genuine multiline input is still rejected.
           cmd="${cmd//$'\r'/}"
           while [[ "$cmd" == *$'\n' ]]; do
             cmd="${cmd%$'\n'}"
@@ -156,10 +152,15 @@ jobs:
           gzip -dc /tmp/initramfs | (cd /tmp/initrd && cpio -idm --no-absolute-filenames)
           unsquashfs -f -d /tmp/modloop /tmp/modloop-virt >/dev/null
 
+          # Do not hard-code the kernel release: the netboot files must stay
+          # matched even when Alpine revs the virt kernel inside the release.
+          mapfile -t kernel_dirs < <(find /tmp/modloop/modules -mindepth 1 -maxdepth 1 -type d -printf '%f\n')
+          test "${#kernel_dirs[@]}" -eq 1 || { printf 'unexpected kernel module dirs:\n%s\n' "$(printf '%s\n' "${kernel_dirs[@]}")" >&2; exit 1; }
+          KERNEL_VERSION="${kernel_dirs[0]}"
           moddir="/tmp/modloop/modules/$KERNEL_VERSION"
-          test -d "$moddir"
           depfile="$moddir/modules.dep"
           test -f "$depfile"
+          echo "using Alpine kernel module tree: $KERNEL_VERSION"
 
           rm -rf /tmp/initrd/lib/modules
           mkdir -p "/tmp/initrd/lib/modules/$KERNEL_VERSION"
@@ -173,8 +174,25 @@ jobs:
             seen["$rel"]=1
 
             local src="$moddir/$rel"
-            local dst="/tmp/initrd/lib/modules/$KERNEL_VERSION/$rel"
+            if [ ! -f "$src" ]; then
+              # Be tolerant of Alpine's module compression format when a
+              # hard-coded module name omits the compression suffix.
+              local base="${rel##*/}"
+              local found=""
+              for suffix in .gz .xz .zst; do
+                found=$(find "$moddir/kernel" -type f -name "$base$suffix" -print -quit)
+                [ -n "$found" ] && break
+              done
+              if [ -n "$found" ]; then
+                rel="${found#"$moddir/"}"
+                src="$found"
+                [ "${seen[$rel]+x}" = x ] && return 0
+                seen["$rel"]=1
+              fi
+            fi
+
             test -f "$src" || { echo "missing module: $rel" >&2; return 1; }
+            local dst="/tmp/initrd/lib/modules/$KERNEL_VERSION/$rel"
             mkdir -p "$(dirname "$dst")"
             cp "$src" "$dst"
 
@@ -185,9 +203,7 @@ jobs:
             done
           }
 
-          # Alpine packages kernel modules compressed as .ko.gz. Keep the
-          # exact filenames referenced by modules.dep so modprobe can resolve
-          # the dependency graph inside our minimal initramfs.
+          # Resolve by module basename so this survives .ko/.ko.gz changes.
           copy_module kernel/drivers/virtio/virtio.ko.gz
           copy_module kernel/drivers/virtio/virtio_ring.ko.gz
           copy_module kernel/drivers/virtio/virtio_pci.ko.gz
