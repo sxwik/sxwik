@@ -148,13 +148,26 @@ jobs:
 
           kind=$(file -b /tmp/initramfs)
           case "$kind" in
-            *gzip*)  gzip -dc /tmp/initramfs | (cd /tmp/initrd && cpio -idm --quiet --no-absolute-filenames) ;;
+            *gzip*) gzip -dc /tmp/initramfs | (cd /tmp/initrd && cpio -idm --quiet --no-absolute-filenames) ;;
             *Zstandard*) zstd -dc /tmp/initramfs | (cd /tmp/initrd && cpio -idm --quiet --no-absolute-filenames) ;;
             *XZ*) xz -dc /tmp/initramfs | (cd /tmp/initrd && cpio -idm --quiet --no-absolute-filenames) ;;
             *) echo "unsupported initramfs format: $kind" >&2; exit 1 ;;
           esac
 
-          curl -fsSL "https://dl-cdn.alpinelinux.org/alpine/v${ALPINE%.*}/main/x86_64/$LINUX_VIRT_APK" -o /tmp/linux-virt.apk
+          found=0
+          for base in \
+            "https://dl-cdn.alpinelinux.org/alpine/v${ALPINE%.*}/main/x86_64" \
+            "https://download.nus.edu.sg/mirror/alpine/v${ALPINE%.*}/main/x86_64" \
+            "https://mirrors.vcea.wsu.edu/alpine/v${ALPINE%.*}/main/x86_64" \
+            "https://debian.lagoon.nc/alpine/v${ALPINE%.*}/main/x86_64"; do
+            echo "trying $base/$LINUX_VIRT_APK"
+            if curl -fL --retry 2 --retry-delay 1 "$base/$LINUX_VIRT_APK" -o /tmp/linux-virt.apk; then
+              found=1
+              break
+            fi
+          done
+          test "$found" -eq 1
+
           tar -xf /tmp/linux-virt.apk -C /tmp/linuxvirt
           data=$(find /tmp/linuxvirt -maxdepth 1 -type f -name 'data.tar.*' | head -n 1)
           test -n "$data"
@@ -167,6 +180,7 @@ jobs:
           cp -a "/tmp/linuxvirt/root/lib/modules/$KERNEL_VERSION" /tmp/initrd/lib/modules/
 
           test -f "/tmp/initrd/lib/modules/$KERNEL_VERSION/kernel/fs/ext4/ext4.ko.gz"
+          test -f "/tmp/initrd/lib/modules/$KERNEL_VERSION/kernel/drivers/block/virtio_blk.ko.gz"
           test -f "/tmp/initrd/lib/modules/$KERNEL_VERSION/modules.dep"
 
           (cd /tmp/initrd && find . -print0 | cpio --null -o -H newc --quiet | gzip -9) > /tmp/initramfs-custom
