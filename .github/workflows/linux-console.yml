@@ -120,21 +120,17 @@ jobs:
           mkdir -p /tmp/initrd /tmp/modloop
           gzip -dc /tmp/initramfs | (cd /tmp/initrd && cpio -idm --no-absolute-filenames)
           unsquashfs -f -d /tmp/modloop /tmp/modloop-virt >/dev/null
-
-          echo 'modloop top-level:'
-          find /tmp/modloop -maxdepth 2 -type d | sort | head -30
-          moddir="/tmp/modloop/lib/modules/$KERNEL_VERSION"
-          test -d "$moddir" || { echo "module directory not found: $moddir" >&2; find /tmp/modloop -maxdepth 4 -type d | sort >&2; exit 1; }
+          echo 'modloop kernel trees:'
+          find /tmp/modloop/modules -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort
+          moddir="/tmp/modloop/modules/$KERNEL_VERSION"
+          test -d "$moddir" || { echo "module directory not found: $moddir" >&2; find /tmp/modloop -maxdepth 3 -type d | sort >&2; exit 1; }
           test -f "$moddir/modules.dep"
-
           rm -rf /tmp/initrd/lib/modules
           mkdir -p /tmp/initrd/lib/modules
           cp -a "$moddir" /tmp/initrd/lib/modules/
-
           echo 'kernel modules copied:'
           find "/tmp/initrd/lib/modules/$KERNEL_VERSION" -type f | wc -l
           find "/tmp/initrd/lib/modules/$KERNEL_VERSION/kernel/drivers/virtio" -type f 2>/dev/null | sort || true
-
           (cd /tmp/initrd && find . -print0 | cpio --null -o -H newc) | gzip -9 > /tmp/initramfs-custom
           test -s /tmp/initramfs-custom
           ls -lh /tmp/initramfs-custom
