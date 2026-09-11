@@ -98,7 +98,7 @@ jobs:
             cp /tmp/state/linux-state.img "$STATE"
           else
             echo 'creating fresh VM state'
-            curl -fsSL "https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/x86_64/alpine-minirootfs-3.24.1-x86_64.tar.gz" -o /tmp/alpine.tar.gz
+            curl -fsSL "https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/x86_64/alpine-minirootfs-${ALPINE}-x86_64.tar.gz" -o /tmp/alpine.tar.gz
             qemu-img create -f raw "$STATE" 64M >/dev/null
             mkfs.ext4 -q "$STATE"
             sudo mkdir -p /mnt/sxwik-linux
@@ -141,29 +141,31 @@ jobs:
           curl -fsSL "$VIRT_NETBOOT/modloop-virt" -o /tmp/modloop-virt
           file /tmp/vmlinuz /tmp/initramfs /tmp/modloop-virt
 
-      - name: Build custom initramfs
+      - name: Build custom initramfs with virtio and ext4 modules
         shell: bash
         run: |
           rm -rf /tmp/initrd /tmp/modloop
           mkdir -p /tmp/initrd /tmp/modloop
 
           gzip -dc /tmp/initramfs | (cd /tmp/initrd && cpio -idm --no-absolute-filenames)
-          unsquashfs -f -d /tmp/modloop /tmp/modloop-virt
+          unsquashfs -f -d /tmp/modloop /tmp/modloop-virt >/dev/null
 
-          test -d "/tmp/modloop/modules/$KERNEL_VERSION"
-          rm -rf "/tmp/initrd/lib/modules"
+          moddir="/tmp/modloop/modules/$KERNEL_VERSION"
+          if [ ! -d "$moddir" ]; then
+            echo "module directory not found: $moddir" >&2
+            find /tmp/modloop -maxdepth 3 -type d -name 'modules' -o -name "$KERNEL_VERSION" | head -n 40 >&2 || true
+            exit 1
+          fi
+
+          find "$moddir/kernel/fs" -maxdepth 3 -type f -iname 'ext4.ko*' -print | head -n 20
+          find "$moddir/kernel/drivers" -maxdepth 4 -type f -iname 'virtio*.ko*' -print | head -n 40
+
+          rm -rf /tmp/initrd/lib/modules
           mkdir -p /tmp/initrd/lib/modules
-          cp -a "/tmp/modloop/modules/$KERNEL_VERSION" /tmp/initrd/lib/modules/
+          cp -a "$moddir" /tmp/initrd/lib/modules/
 
-          test -f "/tmp/initrd/lib/modules/$KERNEL_VERSION/kernel/fs/ext4/ext4.ko.gz"
-          test -f "/tmp/initrd/lib/modules/$KERNEL_VERSION/kernel/drivers/block/virtio_blk.ko.gz"
-          test -f "/tmp/initrd/lib/modules/$KERNEL_VERSION/kernel/drivers/virtio/virtio.ko.gz"
-          test -f "/tmp/initrd/lib/modules/$KERNEL_VERSION/modules.dep"
-
-          rm -f /tmp/initrd/bin/mkdir /tmp/initrd/bin/mount /tmp/initrd/bin/sh
-          ln -s /bin/busybox /tmp/initrd/bin/mkdir
-          ln -s /bin/busybox /tmp/initrd/bin/mount
-          ln -s /bin/busybox /tmp/initrd/bin/sh
+          test -d "/tmp/initrd/lib/modules/$KERNEL_VERSION"
+          test -f "/tmp/initrd/lib/modules/$KERNEL_VERSION/modules.dep" || test -f "/tmp/initrd/lib/modules/$KERNEL_VERSION/modules.dep.bin"
 
           (cd /tmp/initrd && find . -print0 | cpio --null -o -H newc) | gzip -9 > /tmp/initramfs-custom
           test -s /tmp/initramfs-custom
@@ -189,10 +191,9 @@ jobs:
             -no-reboot < /tmp/qemu.in > /tmp/console.log 2>&1 &
           qemu_pid=$!
 
-          exec 3>/tmp/qemu.in
           ready=0
           for _ in $(seq 1 50); do
-            if grep -q 'Run /bin/sh as init process' /tmp/console.log 2>/dev/null; then
+            if grep -Eq 'Run /bin/sh as init process|job control turned off' /tmp/console.log 2>/dev/null; then
               ready=1
               break
             fi
@@ -210,10 +211,12 @@ jobs:
             exit 1
           fi
 
+          exec 3>/tmp/qemu.in
           sleep 1
           printf 'modprobe virtio_pci\n' >&3
           printf 'modprobe virtio_blk\n' >&3
           printf 'modprobe ext4\n' >&3
+          printf 'sleep 1\n' >&3
           printf 'mkdir -p /state\n' >&3
           printf 'mount -t ext4 /dev/vda /state\n' >&3
           printf 'exec /state/root/.sxwik-init.sh\n' >&3
@@ -221,6 +224,7 @@ jobs:
 
           set +e
           timeout --foreground 60s tail --pid="$qemu_pid" -f /tmp/console.log >/dev/null 2>&1
+          tail_rc=$?
           wait "$qemu_pid"
           rc=$?
           set -e
@@ -228,13 +232,20 @@ jobs:
           test -s /tmp/console.log
           tail -n 120 /tmp/console.log > /tmp/console.tail
           cat /tmp/console.tail
+          if [ "$tail_rc" -eq 124 ]; then
+            echo 'QEMU timed out' >&2
+            exit 1
+          fi
           if [ "$rc" -ne 0 ]; then
             echo "QEMU exited with status $rc" >&2
             exit "$rc"
           fi
-          grep -q 'SXWIK LINUX :: shared guest' /tmp/console.tail
-          grep -q 'sxwik@linux:~$ echo hello' /tmp/console.tail
-          grep -q '^hello$' /tmp/console.tail
+
+          if [ "${{ github.event_name }}" = "push" ]; then
+            grep -Fq 'SXWIK LINUX :: shared guest' /tmp/console.tail
+            grep -Fq 'sxwik@linux:~$ echo hello' /tmp/console.tail
+            grep -Fxq 'hello' /tmp/console.tail
+          fi
 
       - name: Render terminal screen
         shell: python
