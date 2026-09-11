@@ -93,7 +93,7 @@ jobs:
             cp /tmp/state/linux-state.img "$STATE"
           else
             echo 'creating fresh VM state'
-            curl -fsSL "https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/x86_64/alpine-minirootfs-3.24.1-x86_64.tar.gz" -o /tmp/alpine.tar.gz
+            curl -fsSL "$VIRT_NETBOOT/../../../releases/x86_64/alpine-minirootfs-3.24.1-x86_64.tar.gz" -o /tmp/alpine.tar.gz
             qemu-img create -f raw "$STATE" 64M >/dev/null
             mkfs.ext4 -q "$STATE"
             sudo mkdir -p /mnt/sxwik-linux
@@ -134,9 +134,8 @@ jobs:
           curl -fsSL "$VIRT_NETBOOT/vmlinuz-virt" -o /tmp/vmlinuz
           curl -fsSL "$VIRT_NETBOOT/initramfs-virt" -o /tmp/initramfs
           curl -fsSL "$VIRT_NETBOOT/modloop-virt" -o /tmp/modloop-virt
-          file /tmp/vmlinuz /tmp/initramfs /tmp/modloop-virt
 
-      - name: Build custom initramfs with virtio and ext4 modules
+      - name: Build minimal initramfs with required modules
         shell: bash
         run: |
           rm -rf /tmp/initrd /tmp/modloop
@@ -147,13 +146,47 @@ jobs:
 
           moddir="/tmp/modloop/modules/$KERNEL_VERSION"
           test -d "$moddir"
-          find "$moddir/kernel/fs" -maxdepth 3 -type f -iname 'ext4.ko*' -print | head -n 20
-          find "$moddir/kernel/drivers" -maxdepth 4 -type f -iname 'virtio*.ko*' -print | head -n 40
+          depfile="$moddir/modules.dep"
+          test -f "$depfile"
 
           rm -rf /tmp/initrd/lib/modules
-          mkdir -p /tmp/initrd/lib/modules
-          cp -a "$moddir" /tmp/initrd/lib/modules/
-          test -d "/tmp/initrd/lib/modules/$KERNEL_VERSION"
+          mkdir -p "/tmp/initrd/lib/modules/$KERNEL_VERSION"
+
+          declare -A seen
+          copy_module() {
+            local rel="$1"
+            [ -n "$rel" ] || return 0
+            [[ "$rel" != /* ]] || rel="${rel#/}"
+            [ "${seen[$rel]+x}" = x ] && return 0
+            seen["$rel"]=1
+
+            local src="$moddir/$rel"
+            local dst="/tmp/initrd/lib/modules/$KERNEL_VERSION/$rel"
+            test -f "$src" || { echo "missing module: $rel" >&2; return 1; }
+            mkdir -p "$(dirname "$dst")"
+            cp "$src" "$dst"
+
+            local deps
+            deps=$(awk -v key="$rel" 'index($0, key ":") == 1 {sub(/^[^:]+:[[:space:]]*/, ""); print; exit}' "$depfile")
+            for dep in $deps; do
+              copy_module "$dep"
+            done
+          }
+
+          copy_module kernel/drivers/virtio/virtio.ko
+          copy_module kernel/drivers/virtio/virtio_ring.ko
+          copy_module kernel/drivers/virtio/virtio_pci.ko
+          copy_module kernel/drivers/block/virtio_blk.ko
+          copy_module kernel/fs/jbd2/jbd2.ko
+          copy_module kernel/fs/mbcache.ko
+          copy_module kernel/fs/ext4/ext4.ko
+
+          for meta in modules.dep modules.alias modules.builtin modules.symbols; do
+            [ -f "$moddir/$meta" ] && cp "$moddir/$meta" "/tmp/initrd/lib/modules/$KERNEL_VERSION/$meta"
+          done
+
+          count=$(find "/tmp/initrd/lib/modules/$KERNEL_VERSION" -type f | wc -l)
+          echo "copied $count module files"
 
           (cd /tmp/initrd && find . -print0 | cpio --null -o -H newc) | gzip -9 > /tmp/initramfs-custom
           test -s /tmp/initramfs-custom
@@ -181,7 +214,7 @@ jobs:
           qemu_pid=$!
 
           ready=0
-          for _ in $(seq 1 50); do
+          for _ in $(seq 1 45); do
             if grep -Eq 'Run /bin/sh as init process|job control turned off' /tmp/console.log 2>/dev/null; then
               ready=1
               break
@@ -201,11 +234,9 @@ jobs:
             exit 1
           fi
 
-          sleep 1
           printf 'modprobe virtio_pci\n' >&3
           printf 'modprobe virtio_blk\n' >&3
           printf 'modprobe ext4\n' >&3
-          printf 'sleep 1\n' >&3
           printf 'mkdir -p /state\n' >&3
           printf 'mount -t ext4 /dev/vda /state\n' >&3
           printf 'exec /state/root/.sxwik-init.sh\n' >&3
