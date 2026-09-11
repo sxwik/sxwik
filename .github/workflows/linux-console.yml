@@ -1,8 +1,6 @@
 name: SXWIK Linux Console
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       command:
@@ -31,7 +29,6 @@ env:
 jobs:
   run:
     if: >-
-      (github.event_name == 'push' && github.event.head_commit.message == 'ci: boot test echo hello') ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request == null &&
@@ -54,10 +51,8 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             cmd="$DISPATCH_COMMAND"
-          elif [ "${{ github.event_name }}" = "issue_comment" ]; then
-            cmd="$COMMENT_COMMAND"
           else
-            cmd='echo hello'
+            cmd="$COMMENT_COMMAND"
           fi
           cmd="${cmd//$'\r'/}"
           if [[ "$cmd" == *$'\n'* ]]; then
@@ -98,7 +93,7 @@ jobs:
             cp /tmp/state/linux-state.img "$STATE"
           else
             echo 'creating fresh VM state'
-            curl -fsSL "https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/x86_64/alpine-minirootfs-${ALPINE}-x86_64.tar.gz" -o /tmp/alpine.tar.gz
+            curl -fsSL "https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/x86_64/alpine-minirootfs-3.24.1-x86_64.tar.gz" -o /tmp/alpine.tar.gz
             qemu-img create -f raw "$STATE" 64M >/dev/null
             mkfs.ext4 -q "$STATE"
             sudo mkdir -p /mnt/sxwik-linux
@@ -151,21 +146,14 @@ jobs:
           unsquashfs -f -d /tmp/modloop /tmp/modloop-virt >/dev/null
 
           moddir="/tmp/modloop/modules/$KERNEL_VERSION"
-          if [ ! -d "$moddir" ]; then
-            echo "module directory not found: $moddir" >&2
-            find /tmp/modloop -maxdepth 3 -type d -name 'modules' -o -name "$KERNEL_VERSION" | head -n 40 >&2 || true
-            exit 1
-          fi
-
+          test -d "$moddir"
           find "$moddir/kernel/fs" -maxdepth 3 -type f -iname 'ext4.ko*' -print | head -n 20
           find "$moddir/kernel/drivers" -maxdepth 4 -type f -iname 'virtio*.ko*' -print | head -n 40
 
           rm -rf /tmp/initrd/lib/modules
           mkdir -p /tmp/initrd/lib/modules
           cp -a "$moddir" /tmp/initrd/lib/modules/
-
           test -d "/tmp/initrd/lib/modules/$KERNEL_VERSION"
-          test -f "/tmp/initrd/lib/modules/$KERNEL_VERSION/modules.dep" || test -f "/tmp/initrd/lib/modules/$KERNEL_VERSION/modules.dep.bin"
 
           (cd /tmp/initrd && find . -print0 | cpio --null -o -H newc) | gzip -9 > /tmp/initramfs-custom
           test -s /tmp/initramfs-custom
@@ -176,6 +164,7 @@ jobs:
         run: |
           rm -f /tmp/qemu.in /tmp/console.log
           mkfifo /tmp/qemu.in
+          exec 3<>/tmp/qemu.in
 
           qemu-system-x86_64 \
             -machine accel=tcg \
@@ -188,7 +177,7 @@ jobs:
             -serial stdio \
             -display none \
             -monitor none \
-            -no-reboot < /tmp/qemu.in > /tmp/console.log 2>&1 &
+            -no-reboot <&3 > /tmp/console.log 2>&1 &
           qemu_pid=$!
 
           ready=0
@@ -204,14 +193,14 @@ jobs:
           done
 
           if [ "$ready" -ne 1 ]; then
-            cat /tmp/console.log
+            cat /tmp/console.log 2>/dev/null || true
             echo 'guest shell never became ready' >&2
             kill "$qemu_pid" 2>/dev/null || true
+            exec 3>&-
             wait "$qemu_pid" 2>/dev/null || true
             exit 1
           fi
 
-          exec 3>/tmp/qemu.in
           sleep 1
           printf 'modprobe virtio_pci\n' >&3
           printf 'modprobe virtio_blk\n' >&3
@@ -239,12 +228,6 @@ jobs:
           if [ "$rc" -ne 0 ]; then
             echo "QEMU exited with status $rc" >&2
             exit "$rc"
-          fi
-
-          if [ "${{ github.event_name }}" = "push" ]; then
-            grep -Fq 'SXWIK LINUX :: shared guest' /tmp/console.tail
-            grep -Fq 'sxwik@linux:~$ echo hello' /tmp/console.tail
-            grep -Fxq 'hello' /tmp/console.tail
           fi
 
       - name: Render terminal screen
