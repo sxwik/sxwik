@@ -182,7 +182,10 @@ jobs:
           test -s /tmp/console.log
           tail -n 120 /tmp/console.log | tr -d '\r' > /tmp/console.tail
           cat /tmp/console.tail
-          grep -q $'^SXWIK_DONE:0\r?$' /tmp/console.log || { echo 'guest command failed' >&2; exit 1; }
+          if ! tr -d '\r' < /tmp/console.log | grep -q '^SXWIK_DONE:0$'; then
+            echo 'guest command failed' >&2
+            exit 1
+          fi
 
       - name: Render terminal screen
         shell: python
