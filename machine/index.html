@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#050505">
+  <title>SXWIK MACHINE</title>
+  <style>
+    :root{color-scheme:dark;--bg:#050505;--panel:#0a0a0a;--line:#242424;--text:#e8e8e8;--muted:#777;--hot:#f2f2f2}
+    *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace}
+    body{padding:18px;display:grid;place-items:center}
+    .machine{width:min(1200px,100%);border:1px solid var(--line);background:linear-gradient(180deg,#080808,#050505);box-shadow:0 22px 80px rgba(0,0,0,.55)}
+    .top{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid var(--line);letter-spacing:.08em}
+    .brand{font-weight:800}.status{color:#8e8e8e}.led{display:inline-block;width:7px;height:7px;border-radius:50%;background:#bcbcbc;margin-right:7px;box-shadow:0 0 10px #999}
+    .viewport{padding:12px;background:#000}
+    #screen_container{position:relative;min-height:520px;display:grid;place-items:center;background:#000;border:1px solid #181818;overflow:hidden}
+    #screen_container>div{white-space:pre;font:14px/14px monospace;color:#eee}
+    #screen_container canvas{display:none}
+    #fallback{position:absolute;inset:0;display:grid;place-items:center;color:#666;text-align:center;padding:30px;pointer-events:none}
+    .scan{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(to bottom,transparent 0,transparent 2px,rgba(255,255,255,.018) 3px);mix-blend-mode:screen}
+    .hud{display:flex;gap:10px;padding:10px 12px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:#080808;flex-wrap:wrap}
+    .hud span{border:1px solid #1b1b1b;padding:6px 8px;color:#888}.hud b{color:#ddd;font-weight:600}
+    .controls{display:flex;gap:8px;padding:12px;flex-wrap:wrap}.controls button{background:#0d0d0d;color:#ddd;border:1px solid #252525;padding:8px 11px;font:inherit;cursor:pointer}.controls button:hover{background:#151515}
+    .bootlog{border-top:1px solid var(--line);padding:10px 12px;color:#656565;min-height:72px}.bootlog div{white-space:pre-wrap}
+    .hint{padding:0 12px 12px;color:#555}.hint a{color:#888}
+    @media(max-width:700px){#screen_container{min-height:400px}.viewport{padding:6px}.top{font-size:11px}}
+  </style>
+</head>
+<body>
+  <main class="machine">
+    <header class="top"><span class="brand">SXWIK MACHINE</span><span class="status"><i class="led"></i><span id="state">INITIALIZING</span></span></header>
+    <section class="viewport">
+      <div id="screen_container">
+        <div id="fallback">initializing x86 machine…</div>
+        <canvas></canvas>
+        <div class="scan"></div>
+      </div>
+    </section>
+    <div class="hud">
+      <span>CPU <b>x86</b></span><span>RAM <b>128 MB</b></span><span>VGA <b>2 MB</b></span><span>MODE <b>LOCAL</b></span><span>ENGINE <b>v86 / WASM</b></span>
+    </div>
+    <div class="controls">
+      <button id="restart">RESTART</button><button id="pause">PAUSE</button><button id="fullscreen">FULLSCREEN</button>
+    </div>
+    <div class="bootlog" id="bootlog">[00:00:00] waiting for emulator…</div>
+    <div class="hint">The guest runs in your browser. CPU execution happens client-side.</div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/v86@latest/build/libv86.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const log = (line) => {
+      const box = $('bootlog');
+      const t = new Date().toLocaleTimeString([], {hour12:false});
+      box.innerHTML = `[${t}] ${line}<br>` + box.innerHTML;
+    };
+
+    let emulator;
+    const config = {
+      wasm_path: 'https://cdn.jsdelivr.net/npm/v86@latest/build/v86.wasm',
+      memory_size: 128 * 1024 * 1024,
+      vga_memory_size: 2 * 1024 * 1024,
+      screen_container: $('screen_container'),
+      bios: { url: 'https://cdn.jsdelivr.net/npm/v86@latest/bios/seabios.bin' },
+      vga_bios: { url: 'https://cdn.jsdelivr.net/npm/v86@latest/bios/vgabios.bin' },
+      cdrom: { url: 'https://k.copy.sh/images/linux.iso' },
+      autostart: true
+    };
+
+    function boot(){
+      if (emulator) emulator.destroy();
+      $('state').textContent = 'BOOTING';
+      $('fallback').style.display = 'grid';
+      log('loading v86');
+      emulator = new V86(config);
+      emulator.add_listener('emulator-ready', () => {
+        $('state').textContent = 'ONLINE';
+        $('fallback').style.display = 'none';
+        log('x86 emulator ready');
+      });
+      emulator.add_listener('emulator-started', () => log('guest started'));
+      emulator.add_listener('download-progress', (e) => {
+        if (e && e.file) log(`loading ${e.file} ${Math.round((e.loaded / Math.max(e.total || 1,1))*100)}%`);
+      });
+    }
+
+    $('restart').onclick = () => { log('restart requested'); boot(); };
+    $('pause').onclick = () => {
+      if (!emulator) return;
+      try { emulator.is_running() ? (emulator.stop(), $('pause').textContent='RESUME', $('state').textContent='PAUSED') : (emulator.run(), $('pause').textContent='PAUSE', $('state').textContent='ONLINE'); } catch {}
+    };
+    $('fullscreen').onclick = () => {
+      const el = $('screen_container');
+      if (!document.fullscreenElement) el.requestFullscreen?.(); else document.exitFullscreen?.();
+    };
+
+    boot();
+  </script>
+</body>
+</html>
