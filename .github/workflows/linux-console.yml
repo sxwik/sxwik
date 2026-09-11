@@ -99,7 +99,9 @@ jobs:
           printf '\nSXWIK LINUX :: syncing\n'
           sync
           printf 'SXWIK_DONE:%s\n' "$rc"
-          exit "$rc"
+          sync
+          reboot -f
+          while :; do sleep 3600; done
           EOF
           sudo chmod 0755 /mnt/sxwik-linux/root/.sxwik-init.sh
           sudo sync
