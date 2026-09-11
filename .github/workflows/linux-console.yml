@@ -119,10 +119,10 @@ jobs:
           } > /tmp/guest-input
 
           set +e
-          timeout 45s qemu-system-x86_64 \
+          timeout 60s qemu-system-x86_64 \
             -machine accel=tcg \
             -cpu qemu64 \
-            -m 128M \
+            -m 256M \
             -kernel /tmp/vmlinuz \
             -initrd /tmp/initramfs \
             -drive file="$STATE",format=raw,if=virtio \
@@ -131,11 +131,16 @@ jobs:
             -display none \
             -monitor none \
             -no-reboot < /tmp/guest-input > /tmp/console.log 2>&1
+          rc=$?
           set -e
 
           test -s /tmp/console.log
           tail -n 120 /tmp/console.log > /tmp/console.tail
           cat /tmp/console.tail
+          if [ "$rc" -eq 124 ]; then
+            echo 'QEMU timed out' >&2
+            exit 1
+          fi
 
       - name: Render terminal screen
         shell: python
@@ -156,7 +161,7 @@ jobs:
           <rect x="0" y="0" width="1240" height="38" rx="18" fill="#0d0f12"/>
           <circle cx="20" cy="19" r="6" fill="#ff5f57"/><circle cx="40" cy="19" r="6" fill="#febc2e"/><circle cx="60" cy="19" r="6" fill="#28c840"/>
           <text x="620" y="24" text-anchor="middle" class="title">SXWIK LINUX :: ttyS0</text>
-          <text x="28" y="58" class="meta">ALPINE {html.escape('${ALPINE}')} · x86_64 · 128 MiB · QEMU · SHARED STATE</text>
+          <text x="28" y="58" class="meta">ALPINE {html.escape('${ALPINE}')} · x86_64 · 256 MiB · QEMU · SHARED STATE</text>
           {rows}
           <style>.t{{font:14px monospace;fill:#d7dbe0;white-space:pre}}.meta{{font:11px monospace;fill:#7f8792}}.title{{font:11px monospace;fill:#9aa2ad;letter-spacing:2px}}</style>
           </svg>'''
