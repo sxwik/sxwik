@@ -54,9 +54,21 @@ jobs:
           else
             cmd="$COMMENT_COMMAND"
           fi
+
+          # GitHub issue comments arrive with a trailing newline. Remove only
+          # trailing CR/LF so a normal one-line shell command is accepted while
+          # genuine multiline input is still rejected.
           cmd="${cmd//$'\r'/}"
+          while [[ "$cmd" == *$'\n' ]]; do
+            cmd="${cmd%$'\n'}"
+          done
+
           if [[ "$cmd" == *$'\n'* ]]; then
             echo 'multiline commands are disabled' >&2
+            exit 1
+          fi
+          if [ -z "${cmd//[[:space:]]/}" ]; then
+            echo 'empty command' >&2
             exit 1
           fi
           if [ ${#cmd} -gt 240 ]; then
