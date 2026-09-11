@@ -98,8 +98,7 @@ jobs:
           rc=$?
           printf '\nSXWIK LINUX :: syncing\n'
           sync
-          sleep 1
-          halt -f
+          printf 'SXWIK_DONE:%s\n' "$rc"
           exit "$rc"
           EOF
           sudo chmod 0755 /mnt/sxwik-linux/root/.sxwik-init.sh
@@ -140,7 +139,7 @@ jobs:
           qemu-system-x86_64 -machine accel=tcg -cpu qemu64 -m "$RAM" -kernel /tmp/vmlinuz -initrd /tmp/initramfs-custom -drive file="$STATE",format=raw,if=virtio -append 'console=ttyS0,115200n8 rdinit=/bin/sh' -serial stdio -display none -monitor none -no-reboot <&3 > /tmp/console.log 2>&1 &
           qemu_pid=$!
           ready=0
-          for _ in $(seq 1 45); do
+          for _ in $(seq 1 60); do
             if grep -Eq 'Run /bin/sh as init process|job control turned off' /tmp/console.log 2>/dev/null; then ready=1; break; fi
             if ! kill -0 "$qemu_pid" 2>/dev/null; then break; fi
             sleep 1
@@ -153,17 +152,25 @@ jobs:
           printf 'mount -t ext4 /dev/vda /state\n' >&3
           printf 'exec /state/root/.sxwik-init.sh\n' >&3
           exec 3>&-
-          set +e
-          timeout --foreground 60s tail --pid="$qemu_pid" -f /tmp/console.log >/dev/null 2>&1
-          tail_rc=$?
-          wait "$qemu_pid"
-          rc=$?
-          set -e
+          done=0
+          for _ in $(seq 1 90); do
+            if grep -q '^SXWIK_DONE:' /tmp/console.log 2>/dev/null; then done=1; break; fi
+            if ! kill -0 "$qemu_pid" 2>/dev/null; then break; fi
+            sleep 1
+          done
+          if [ "$done" -ne 1 ]; then
+            cat /tmp/console.log 2>/dev/null || true
+            kill "$qemu_pid" 2>/dev/null || true
+            wait "$qemu_pid" 2>/dev/null || true
+            echo 'guest did not report completion' >&2
+            exit 1
+          fi
+          kill "$qemu_pid" 2>/dev/null || true
+          wait "$qemu_pid" 2>/dev/null || true
           test -s /tmp/console.log
           tail -n 120 /tmp/console.log > /tmp/console.tail
           cat /tmp/console.tail
-          [ "$tail_rc" -ne 124 ] || { echo 'QEMU timed out' >&2; exit 1; }
-          [ "$rc" -eq 0 ] || { echo "QEMU exited with status $rc" >&2; exit "$rc"; }
+          grep -q '^SXWIK_DONE:0$' /tmp/console.log || { echo 'guest command failed' >&2; exit 1; }
 
       - name: Render terminal screen
         shell: python
