@@ -1,0 +1,222 @@
+name: SXWIK Linux Console
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: Guest shell command
+        required: true
+        type: string
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: write
+  issues: write
+  actions: write
+
+concurrency:
+  group: sxwik-linux-console
+  cancel-in-progress: false
+
+jobs:
+  run:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request == null &&
+       github.event.issue.title == '🖥️ SXWIK LINUX CONSOLE' &&
+       github.event.comment.user.type != 'Bot')
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      ALPINE: '3.24.1'
+      SCREEN: linux/screen.svg
+      STATE: linux-state.img
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve command
+        id: command
+        shell: bash
+        env:
+          DISPATCH_COMMAND: ${{ inputs.command }}
+          COMMENT_COMMAND: ${{ github.event.comment.body }}
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            cmd="$DISPATCH_COMMAND"
+          else
+            cmd="$COMMENT_COMMAND"
+          fi
+          cmd="${cmd//$'\r'/}"
+          if [[ "$cmd" == *$'\n'* ]]; then
+            echo 'multiline commands are disabled' >&2
+            exit 1
+          fi
+          if [ ${#cmd} -gt 240 ]; then
+            echo 'command too long' >&2
+            exit 1
+          fi
+          printf '%s' "$cmd" > /tmp/command.txt
+          echo "command=$cmd" >> "$GITHUB_OUTPUT"
+
+      - name: Install VM tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 qemu-utils e2fsprogs curl unzip jq
+
+      - name: Restore persistent disk
+        id: restore
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          url=$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" \
+            --jq '.artifacts[] | select(.name == "sxwik-linux-state" and .expired == false) | .archive_download_url' \
+            | head -n 1)
+
+          if [ -n "$url" ]; then
+            echo 'restoring previous VM state'
+            curl -fsSL \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H 'Accept: application/vnd.github+json' \
+              "$url" -o /tmp/state.zip
+            unzip -o /tmp/state.zip -d /tmp/state >/dev/null
+            cp /tmp/state/linux-state.img "$STATE"
+          else
+            echo 'creating fresh VM state'
+            curl -fsSL "https://dl-cdn.alpinelinux.org/alpine/v${ALPINE%.*}/releases/x86_64/alpine-minirootfs-${ALPINE}-x86_64.tar.gz" -o /tmp/alpine.tar.gz
+            qemu-img create -f raw "$STATE" 64M >/dev/null
+            mkfs.ext4 -q "$STATE"
+            sudo mkdir -p /mnt/sxwik-linux
+            sudo mount -o loop "$STATE" /mnt/sxwik-linux
+            sudo tar xpf /tmp/alpine.tar.gz -C /mnt/sxwik-linux
+            sudo mkdir -p /mnt/sxwik-linux/proc /mnt/sxwik-linux/sys /mnt/sxwik-linux/dev /mnt/sxwik-linux/root
+            sudo sh -c 'printf "%s\n" "#!/bin/sh" "echo SXWIK LINUX" > /mnt/sxwik-linux/etc/motd'
+            sudo umount /mnt/sxwik-linux
+          fi
+
+      - name: Download Alpine kernel
+        run: |
+          base="https://dl-cdn.alpinelinux.org/alpine/v${ALPINE%.*}/releases/x86_64/netboot"
+          curl -fsSL "$base/vmlinuz-virt" -o /tmp/vmlinuz
+          curl -fsSL "$base/initramfs-virt" -o /tmp/initramfs
+
+      - name: Boot real Linux and execute command
+        id: vm
+        shell: bash
+        run: |
+          cmd=$(cat /tmp/command.txt)
+          printf '%s\n' "$cmd" > /tmp/guest-command
+
+          {
+            printf '\n\n'
+            printf 'export PS1="sxwik@linux:~$ "\n'
+            printf 'cd /root\n'
+            printf 'echo "SXWIK LINUX :: shared guest"\n'
+            printf 'uname -srmo\n'
+            printf 'printf "\\n"\n'
+            cat /tmp/guest-command
+            printf '\nprintf "\\nSXWIK LINUX :: syncing\\n"\nsync\nhalt -f\n'
+          } > /tmp/guest-input
+
+          set +e
+          timeout 45s qemu-system-x86_64 \
+            -machine accel=tcg \
+            -cpu qemu64 \
+            -m 64M \
+            -kernel /tmp/vmlinuz \
+            -initrd /tmp/initramfs \
+            -drive file="$STATE",format=raw,if=virtio \
+            -append 'root=/dev/vda rw modules=virtio_blk,ext4 rootfstype=ext4 console=ttyS0,115200n8 init=/bin/sh' \
+            -serial stdio \
+            -display none \
+            -monitor none \
+            -no-reboot < /tmp/guest-input > /tmp/console.log 2>&1
+          rc=$?
+          set -e
+
+          if [ ! -s /tmp/console.log ]; then
+            echo 'VM produced no console output' >&2
+            exit 1
+          fi
+
+          tail -n 120 /tmp/console.log > /tmp/console.tail
+          echo "qemu_exit=$rc" >> "$GITHUB_OUTPUT"
+          cat /tmp/console.tail
+
+      - name: Render terminal screen
+        shell: python
+        run: |
+          import html
+          from pathlib import Path
+          text = Path('/tmp/console.tail').read_text(errors='replace')
+          text = ''.join(c if c in '\n\t' or ord(c) >= 32 else ' ' for c in text)
+          lines = text.splitlines()[-38:]
+          lines = [line[:118] for line in lines]
+          width = 118
+          height = max(24, len(lines) + 4)
+          esc = lambda s: html.escape(s, quote=False)
+          rows = '\n'.join(
+              f'<text x="28" y="{58 + i*20}" class="t">{esc(line)}</text>'
+              for i, line in enumerate(lines)
+          )
+          svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 {height*20+60}" width="1240" height="{height*20+60}">
+          <rect width="100%" height="100%" rx="18" fill="#050607"/>
+          <rect x="1" y="1" width="1238" height="{height*20+58}" rx="17" fill="none" stroke="#30343a"/>
+          <rect x="0" y="0" width="1240" height="38" rx="18" fill="#0d0f12"/>
+          <circle cx="20" cy="19" r="6" fill="#ff5f57"/><circle cx="40" cy="19" r="6" fill="#febc2e"/><circle cx="60" cy="19" r="6" fill="#28c840"/>
+          <text x="620" y="24" text-anchor="middle" class="title">SXWIK LINUX :: ttyS0</text>
+          <text x="28" y="52" class="meta">ALPINE {html.escape('${ALPINE}')} · x86_64 · 64 MiB · QEMU · SHARED STATE</text>
+          {rows}
+          <style>.t{{font:14px monospace;fill:#d7dbe0;white-space:pre}}.meta{{font:11px monospace;fill:#7f8792}}.title{{font:11px monospace;fill:#9aa2ad;letter-spacing:2px}}</style>
+          </svg>'''
+          Path('linux/screen.svg').write_text(svg)
+
+      - name: Update command history and profile screen
+        shell: bash
+        env:
+          CMD: ${{ steps.command.outputs.command }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p linux
+          touch linux/history.log
+          printf '%s\n' "$CMD" >> linux/history.log
+          git config user.name 'sxwik-linux[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add linux/screen.svg linux/history.log
+          git diff --cached --quiet || git commit -m "linux: execute $CMD"
+          git push
+
+      - name: Persist VM disk
+        uses: actions/upload-artifact@v4
+        with:
+          name: sxwik-linux-state-${{ github.run_id }}
+          path: linux-state.img
+          retention-days: 90
+
+      - name: Remove older VM snapshots
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" \
+            --jq '.artifacts[] | select(.name | startswith("sxwik-linux-state-")) | [.id,.created_at] | @tsv' \
+            | sort -k2 -r \
+            | tail -n +4 \
+            | cut -f1 \
+            | while read -r id; do
+                [ -z "$id" ] || gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/$id" >/dev/null || true
+              done
+
+      - name: Comment result
+        if: github.event_name == 'issue_comment'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE: ${{ github.event.issue.number }}
+          CMD: ${{ steps.command.outputs.command }}
+        run: |
+          gh issue comment "$ISSUE" --body "\`$CMD\` executed in the shared Linux guest. The profile terminal is updating from the same VM state."
