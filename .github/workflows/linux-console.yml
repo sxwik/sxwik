@@ -127,6 +127,7 @@ jobs:
           cp -a "$moddir" /tmp/initrd/lib/modules/
           ln -sf /bin/busybox /tmp/initrd/bin/mkdir
           ln -sf /bin/busybox /tmp/initrd/bin/mount
+          ln -sf /bin/busybox /tmp/initrd/bin/sh
           echo "kernel modules copied: $(find "/tmp/initrd/lib/modules/$KERNEL_VERSION" -type f | wc -l)"
           (cd /tmp/initrd && find . -print0 | cpio --null -o -H newc) | gzip -9 > /tmp/initramfs-custom
           test -s /tmp/initramfs-custom
@@ -147,6 +148,7 @@ jobs:
             sleep 1
           done
           if [ "$ready" -ne 1 ]; then cat /tmp/console.log 2>/dev/null || true; kill "$qemu_pid" 2>/dev/null || true; exec 3>&-; wait "$qemu_pid" 2>/dev/null || true; exit 1; fi
+          printf 'mount -t devtmpfs devtmpfs /dev\n' >&3
           printf 'modprobe virtio_pci\n' >&3
           printf 'modprobe virtio_blk\n' >&3
           printf 'modprobe ext4\n' >&3
