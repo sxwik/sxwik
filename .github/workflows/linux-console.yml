@@ -98,7 +98,7 @@ jobs:
             cp /tmp/state/linux-state.img "$STATE"
           else
             echo 'creating fresh VM state'
-            curl -fsSL "$VIRT_NETBOOT/../../../releases/x86_64/alpine-minirootfs-3.24.1-x86_64.tar.gz" -o /tmp/alpine.tar.gz
+            curl -fsSL "https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/x86_64/alpine-minirootfs-3.24.1-x86_64.tar.gz" -o /tmp/alpine.tar.gz
             qemu-img create -f raw "$STATE" 64M >/dev/null
             mkfs.ext4 -q "$STATE"
             sudo mkdir -p /mnt/sxwik-linux
@@ -141,17 +141,17 @@ jobs:
           curl -fsSL "$VIRT_NETBOOT/modloop-virt" -o /tmp/modloop-virt
           file /tmp/vmlinuz /tmp/initramfs /tmp/modloop-virt
 
-      - name: Inject matching kernel modules into initramfs
+      - name: Build custom initramfs
         shell: bash
         run: |
           rm -rf /tmp/initrd /tmp/modloop
           mkdir -p /tmp/initrd /tmp/modloop
 
-          gzip -dc /tmp/initramfs | (cd /tmp/initrd && cpio -idm --quiet --no-absolute-filenames)
-          unsquashfs -f -d /tmp/modloop /tmp/modloop-virt >/dev/null
+          gzip -dc /tmp/initramfs | (cd /tmp/initrd && cpio -idm --no-absolute-filenames)
+          unsquashfs -f -d /tmp/modloop /tmp/modloop-virt
 
           test -d "/tmp/modloop/modules/$KERNEL_VERSION"
-          rm -rf /tmp/initrd/lib/modules
+          rm -rf "/tmp/initrd/lib/modules"
           mkdir -p /tmp/initrd/lib/modules
           cp -a "/tmp/modloop/modules/$KERNEL_VERSION" /tmp/initrd/lib/modules/
 
@@ -160,14 +160,13 @@ jobs:
           test -f "/tmp/initrd/lib/modules/$KERNEL_VERSION/kernel/drivers/virtio/virtio.ko.gz"
           test -f "/tmp/initrd/lib/modules/$KERNEL_VERSION/modules.dep"
 
-          ln -sf /bin/busybox /bin/mkdir.tmp
-          ln -sf /bin/busybox /bin/mount.tmp
-          ln -sf /bin/busybox /bin/sh.tmp
-          mv /bin/mkdir.tmp /tmp/initrd/bin/mkdir
-          mv /bin/mount.tmp /tmp/initrd/bin/mount
-          mv /bin/sh.tmp /tmp/initrd/bin/sh
+          rm -f /tmp/initrd/bin/mkdir /tmp/initrd/bin/mount /tmp/initrd/bin/sh
+          ln -s /bin/busybox /tmp/initrd/bin/mkdir
+          ln -s /bin/busybox /tmp/initrd/bin/mount
+          ln -s /bin/busybox /tmp/initrd/bin/sh
 
-          (cd /tmp/initrd && find . -print0 | cpio --null -o -H newc --quiet | gzip -9) > /tmp/initramfs-custom
+          (cd /tmp/initrd && find . -print0 | cpio --null -o -H newc) | gzip -9 > /tmp/initramfs-custom
+          test -s /tmp/initramfs-custom
           ls -lh /tmp/initramfs-custom
 
       - name: Boot Linux and execute command
@@ -221,11 +220,9 @@ jobs:
           exec 3>&-
 
           set +e
-          tail --pid="$qemu_pid" -f /tmp/console.log >/dev/null 2>&1 &
-          tail_pid=$!
+          timeout --foreground 60s tail --pid="$qemu_pid" -f /tmp/console.log >/dev/null 2>&1
           wait "$qemu_pid"
           rc=$?
-          kill "$tail_pid" 2>/dev/null || true
           set -e
 
           test -s /tmp/console.log
