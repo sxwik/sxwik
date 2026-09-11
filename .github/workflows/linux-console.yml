@@ -26,6 +26,7 @@ env:
   STATE: linux-state.img
   RAM: 256M
   VIRT_NETBOOT: https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/x86_64/netboot
+  KERNEL_VERSION: 6.18.35-0-virt
 
 jobs:
   run:
@@ -73,7 +74,7 @@ jobs:
       - name: Install VM tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq qemu-system-x86 qemu-utils e2fsprogs curl unzip jq
+          sudo apt-get install -y -qq qemu-system-x86 qemu-utils e2fsprogs curl unzip jq squashfs-tools cpio gzip
 
       - name: Restore persistent disk
         env:
@@ -97,7 +98,7 @@ jobs:
             cp /tmp/state/linux-state.img "$STATE"
           else
             echo 'creating fresh VM state'
-            curl -fsSL "https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/x86_64/alpine-minirootfs-3.24.1-x86_64.tar.gz" -o /tmp/alpine.tar.gz
+            curl -fsSL "$VIRT_NETBOOT/../../../releases/x86_64/alpine-minirootfs-3.24.1-x86_64.tar.gz" -o /tmp/alpine.tar.gz
             qemu-img create -f raw "$STATE" 64M >/dev/null
             mkfs.ext4 -q "$STATE"
             sudo mkdir -p /mnt/sxwik-linux
@@ -133,47 +134,110 @@ jobs:
           sudo umount /mnt/sxwik-linux
           sudo e2fsck -fy "$STATE" >/dev/null
 
-      - name: Download Alpine kernel and initramfs
+      - name: Download matching Alpine kernel, initramfs, and modloop
         run: |
           curl -fsSL "$VIRT_NETBOOT/vmlinuz-virt" -o /tmp/vmlinuz
           curl -fsSL "$VIRT_NETBOOT/initramfs-virt" -o /tmp/initramfs
-          file /tmp/vmlinuz /tmp/initramfs
+          curl -fsSL "$VIRT_NETBOOT/modloop-virt" -o /tmp/modloop-virt
+          file /tmp/vmlinuz /tmp/initramfs /tmp/modloop-virt
 
-      - name: Boot real Linux and enter guest root
+      - name: Inject matching kernel modules into initramfs
         shell: bash
         run: |
-          {
-            printf 'modprobe virtio_pci\n'
-            printf 'modprobe virtio_blk\n'
-            printf 'modprobe ext4\n'
-            printf 'mkdir -p /state\n'
-            printf 'mount -t ext4 /dev/vda /state\n'
-            printf 'exec /state/root/.sxwik-init.sh\n'
-          } > /tmp/guest-input
+          rm -rf /tmp/initrd /tmp/modloop
+          mkdir -p /tmp/initrd /tmp/modloop
 
-          set +e
-          timeout 65s qemu-system-x86_64 \
+          gzip -dc /tmp/initramfs | (cd /tmp/initrd && cpio -idm --quiet --no-absolute-filenames)
+          unsquashfs -f -d /tmp/modloop /tmp/modloop-virt >/dev/null
+
+          test -d "/tmp/modloop/modules/$KERNEL_VERSION"
+          rm -rf /tmp/initrd/lib/modules
+          mkdir -p /tmp/initrd/lib/modules
+          cp -a "/tmp/modloop/modules/$KERNEL_VERSION" /tmp/initrd/lib/modules/
+
+          test -f "/tmp/initrd/lib/modules/$KERNEL_VERSION/kernel/fs/ext4/ext4.ko.gz"
+          test -f "/tmp/initrd/lib/modules/$KERNEL_VERSION/kernel/drivers/block/virtio_blk.ko.gz"
+          test -f "/tmp/initrd/lib/modules/$KERNEL_VERSION/kernel/drivers/virtio/virtio.ko.gz"
+          test -f "/tmp/initrd/lib/modules/$KERNEL_VERSION/modules.dep"
+
+          ln -sf /bin/busybox /bin/mkdir.tmp
+          ln -sf /bin/busybox /bin/mount.tmp
+          ln -sf /bin/busybox /bin/sh.tmp
+          mv /bin/mkdir.tmp /tmp/initrd/bin/mkdir
+          mv /bin/mount.tmp /tmp/initrd/bin/mount
+          mv /bin/sh.tmp /tmp/initrd/bin/sh
+
+          (cd /tmp/initrd && find . -print0 | cpio --null -o -H newc --quiet | gzip -9) > /tmp/initramfs-custom
+          ls -lh /tmp/initramfs-custom
+
+      - name: Boot Linux and execute command
+        shell: bash
+        run: |
+          rm -f /tmp/qemu.in /tmp/console.log
+          mkfifo /tmp/qemu.in
+
+          qemu-system-x86_64 \
             -machine accel=tcg \
             -cpu qemu64 \
             -m "$RAM" \
             -kernel /tmp/vmlinuz \
-            -initrd /tmp/initramfs \
+            -initrd /tmp/initramfs-custom \
             -drive file="$STATE",format=raw,if=virtio \
             -append 'console=ttyS0,115200n8 rdinit=/bin/sh' \
             -serial stdio \
             -display none \
             -monitor none \
-            -no-reboot < /tmp/guest-input > /tmp/console.log 2>&1
+            -no-reboot < /tmp/qemu.in > /tmp/console.log 2>&1 &
+          qemu_pid=$!
+
+          exec 3>/tmp/qemu.in
+          ready=0
+          for _ in $(seq 1 50); do
+            if grep -q 'Run /bin/sh as init process' /tmp/console.log 2>/dev/null; then
+              ready=1
+              break
+            fi
+            if ! kill -0 "$qemu_pid" 2>/dev/null; then
+              break
+            fi
+            sleep 1
+          done
+
+          if [ "$ready" -ne 1 ]; then
+            cat /tmp/console.log
+            echo 'guest shell never became ready' >&2
+            kill "$qemu_pid" 2>/dev/null || true
+            wait "$qemu_pid" 2>/dev/null || true
+            exit 1
+          fi
+
+          sleep 1
+          printf 'modprobe virtio_pci\n' >&3
+          printf 'modprobe virtio_blk\n' >&3
+          printf 'modprobe ext4\n' >&3
+          printf 'mkdir -p /state\n' >&3
+          printf 'mount -t ext4 /dev/vda /state\n' >&3
+          printf 'exec /state/root/.sxwik-init.sh\n' >&3
+          exec 3>&-
+
+          set +e
+          tail --pid="$qemu_pid" -f /tmp/console.log >/dev/null 2>&1 &
+          tail_pid=$!
+          wait "$qemu_pid"
           rc=$?
+          kill "$tail_pid" 2>/dev/null || true
           set -e
 
           test -s /tmp/console.log
           tail -n 120 /tmp/console.log > /tmp/console.tail
           cat /tmp/console.tail
-          if [ "$rc" -eq 124 ]; then
-            echo 'QEMU timed out' >&2
-            exit 1
+          if [ "$rc" -ne 0 ]; then
+            echo "QEMU exited with status $rc" >&2
+            exit "$rc"
           fi
+          grep -q 'SXWIK LINUX :: shared guest' /tmp/console.tail
+          grep -q 'sxwik@linux:~$ echo hello' /tmp/console.tail
+          grep -q '^hello$' /tmp/console.tail
 
       - name: Render terminal screen
         shell: python
