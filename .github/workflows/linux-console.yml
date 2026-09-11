@@ -17,7 +17,7 @@ permissions:
 
 concurrency:
   group: sxwik-linux-console
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 env:
   ALPINE: '3.24.1'
