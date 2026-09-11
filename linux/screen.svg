@@ -5,43 +5,43 @@
 <circle cx="20" cy="19" r="6" fill="#ff5f57"/><circle cx="40" cy="19" r="6" fill="#febc2e"/><circle cx="60" cy="19" r="6" fill="#28c840"/>
 <text x="620" y="24" text-anchor="middle" class="title">SXWIK LINUX :: ttyS0</text>
 <text x="28" y="58" class="meta">ALPINE ${ALPINE} · x86_64 · 64 MiB · QEMU · SHARED STATE</text>
-<text x="28" y="82" class="t">[    1.629003] kmem_cache_node           20KB         20KB</text>
-<text x="28" y="102" class="t">[    1.629125] kmem_cache                36KB         36KB</text>
-<text x="28" y="122" class="t">[    1.629411] Tasks state (memory values in pages):</text>
-<text x="28" y="142" class="t">[    1.629551] [  pid  ]   uid  tgid total_vm      rss rss_anon rss_file rss_shmem pgtables_bytes swapents oom_score_a</text>
-<text x="28" y="162" class="t">[    1.629983] Out of memory and no killable processes...</text>
-<text x="28" y="182" class="t">[    1.630352] Kernel panic - not syncing: System is deadlocked on memory</text>
-<text x="28" y="202" class="t">[    1.630352] CPU: 0 UID: 0 PID: 2 Comm: kthreadd Not tainted 6.18.35-0-virt #1-Alpine PREEMPT(none) </text>
-<text x="28" y="222" class="t">[    1.630352] Hardware name: QEMU Ubuntu 24.04 PC v2 (i440FX + PIIX, arch_caps fix, 1996), BIOS 1.16.3-debian-1.16.3-</text>
-<text x="28" y="242" class="t">[    1.630352] Call Trace:</text>
-<text x="28" y="262" class="t">[    1.630352]  &lt;TASK&gt;</text>
-<text x="28" y="282" class="t">[    1.630352]  dump_stack_lvl+0x5d/0x90</text>
-<text x="28" y="302" class="t">[    1.630352]  vpanic+0xd6/0x2d0</text>
-<text x="28" y="322" class="t">[    1.630352]  panic+0x66/0x66</text>
-<text x="28" y="342" class="t">[    1.630352]  out_of_memory.cold+0x2d/0x78</text>
-<text x="28" y="362" class="t">[    1.630352]  __alloc_pages_slowpath.constprop.0+0xc0f/0xdd0</text>
-<text x="28" y="382" class="t">[    1.630352]  __alloc_frozen_pages_noprof+0x32a/0x340</text>
-<text x="28" y="402" class="t">[    1.630352]  alloc_pages_mpol+0x81/0x180</text>
-<text x="28" y="422" class="t">[    1.630352]  allocate_slab+0x370/0x430</text>
-<text x="28" y="442" class="t">[    1.630352]  ___slab_alloc+0x8a3/0xdc0</text>
-<text x="28" y="462" class="t">[    1.630352]  ? copy_process+0x369/0x3060</text>
-<text x="28" y="482" class="t">[    1.630352]  ? sysvec_apic_timer_interrupt+0xe/0x90</text>
-<text x="28" y="502" class="t">[    1.630352]  __slab_alloc.isra.0+0x26/0x80</text>
-<text x="28" y="522" class="t">[    1.630352]  kmem_cache_alloc_node_noprof+0x39d/0x650</text>
-<text x="28" y="542" class="t">[    1.630352]  ? copy_process+0x369/0x3060</text>
-<text x="28" y="562" class="t">[    1.630352]  copy_process+0x369/0x3060</text>
-<text x="28" y="582" class="t">[    1.630352]  ? update_entity_lag+0x4d/0xe0</text>
-<text x="28" y="602" class="t">[    1.630352]  kernel_clone+0xb7/0x4b0</text>
-<text x="28" y="622" class="t">[    1.630352]  kernel_thread+0x6c/0xa0</text>
-<text x="28" y="642" class="t">[    1.630352]  ? __pfx_kthread+0x10/0x10</text>
-<text x="28" y="662" class="t">[    1.630352]  kthreadd+0x149/0x1c0</text>
-<text x="28" y="682" class="t">[    1.630352]  ? __pfx_kthreadd+0x10/0x10</text>
-<text x="28" y="702" class="t">[    1.630352]  ret_from_fork+0x243/0x270</text>
-<text x="28" y="722" class="t">[    1.630352]  ? __pfx_kthreadd+0x10/0x10</text>
-<text x="28" y="742" class="t">[    1.630352]  ret_from_fork_asm+0x1a/0x30</text>
-<text x="28" y="762" class="t">[    1.630352]  &lt;/TASK&gt;</text>
-<text x="28" y="782" class="t">[    1.630352] Kernel Offset: 0x3a000000 from 0xffffffff81000000 (relocation range: 0xffffffff80000000-0xffffffffbffff</text>
-<text x="28" y="802" class="t">[    1.630352] ---[ end Kernel panic - not syncing: System is deadlocked on memory ]---</text>
-<text x="28" y="822" class="t">qemu-system-x86_64: terminating on signal 15 from pid 3818 (timeout)</text>
+<text x="28" y="82" class="t">[    1.589521] CPU: 0 UID: 0 PID: 31 Comm: kworker/u4:2 Not tainted 6.18.35-0-virt #1-Alpine PREEMPT(none) </text>
+<text x="28" y="102" class="t">[    1.589598] Hardware name: QEMU Ubuntu 24.04 PC v2 (i440FX + PIIX, arch_caps fix, 1996), BIOS 1.16.3-debian-1.16.3-</text>
+<text x="28" y="122" class="t">[    1.589598] Workqueue: events_unbound call_usermodehelper_exec_work</text>
+<text x="28" y="142" class="t">[    1.589598] Call Trace:</text>
+<text x="28" y="162" class="t">[    1.589598]  &lt;TASK&gt;</text>
+<text x="28" y="182" class="t">[    1.589598]  dump_stack_lvl+0x5d/0x90</text>
+<text x="28" y="202" class="t">[    1.589598]  vpanic+0xd6/0x2d0</text>
+<text x="28" y="222" class="t">[    1.589598]  panic+0x66/0x66</text>
+<text x="28" y="242" class="t">[    1.589598]  out_of_memory.cold+0x2d/0x78</text>
+<text x="28" y="262" class="t">[    1.589598]  __alloc_pages_slowpath.constprop.0+0xc0f/0xdd0</text>
+<text x="28" y="282" class="t">[    1.589598]  __alloc_frozen_pages_noprof+0x32a/0x340</text>
+<text x="28" y="302" class="t">[    1.589598]  alloc_pages_bulk_noprof+0x328/0x530</text>
+<text x="28" y="322" class="t">[    1.589598]  alloc_pages_bulk_mempolicy_noprof+0xb9/0x650</text>
+<text x="28" y="342" class="t">[    1.589598]  ? __get_vm_area_node+0xcc/0x140</text>
+<text x="28" y="362" class="t">[    1.589598]  ? __vmalloc_node_range_noprof+0x1a5/0x860</text>
+<text x="28" y="382" class="t">[    1.589598]  __vmalloc_node_range_noprof+0x247/0x860</text>
+<text x="28" y="402" class="t">[    1.589598]  ? kernel_clone+0xb7/0x4b0</text>
+<text x="28" y="422" class="t">[    1.589598]  __vmalloc_node_noprof+0x40/0x70</text>
+<text x="28" y="442" class="t">[    1.589598]  ? kernel_clone+0xb7/0x4b0</text>
+<text x="28" y="462" class="t">[    1.589598]  copy_process+0xc19/0x3060</text>
+<text x="28" y="482" class="t">[    1.589598]  kernel_clone+0xb7/0x4b0</text>
+<text x="28" y="502" class="t">[    1.589598]  user_mode_thread+0x5c/0x90</text>
+<text x="28" y="522" class="t">[    1.589598]  ? __pfx_call_usermodehelper_exec_async+0x10/0x10</text>
+<text x="28" y="542" class="t">[    1.589598]  call_usermodehelper_exec_work+0x69/0xb0</text>
+<text x="28" y="562" class="t">[    1.589598]  process_one_work+0x187/0x350</text>
+<text x="28" y="582" class="t">[    1.589598]  worker_thread+0x191/0x310</text>
+<text x="28" y="602" class="t">[    1.589598]  ? __pfx_worker_thread+0x10/0x10</text>
+<text x="28" y="622" class="t">[    1.589598]  kthread+0xf9/0x240</text>
+<text x="28" y="642" class="t">[    1.589598]  ? finish_task_switch.isra.0+0x97/0x2f0</text>
+<text x="28" y="662" class="t">[    1.589598]  ? __pfx_kthread+0x10/0x10</text>
+<text x="28" y="682" class="t">[    1.589598]  ? __pfx_kthread+0x10/0x10</text>
+<text x="28" y="702" class="t">[    1.589598]  ret_from_fork+0x243/0x270</text>
+<text x="28" y="722" class="t">[    1.589598]  ? __pfx_kthread+0x10/0x10</text>
+<text x="28" y="742" class="t">[    1.589598]  ret_from_fork_asm+0x1a/0x30</text>
+<text x="28" y="762" class="t">[    1.589598]  &lt;/TASK&gt;</text>
+<text x="28" y="782" class="t">[    1.589598] Kernel Offset: 0x19000000 from 0xffffffff81000000 (relocation range: 0xffffffff80000000-0xffffffffbffff</text>
+<text x="28" y="802" class="t">[    1.589598] ---[ end Kernel panic - not syncing: System is deadlocked on memory ]---</text>
+<text x="28" y="822" class="t">qemu-system-x86_64: terminating on signal 15 from pid 3791 (timeout)</text>
 <style>.t{font:14px monospace;fill:#d7dbe0;white-space:pre}.meta{font:11px monospace;fill:#7f8792}.title{font:11px monospace;fill:#9aa2ad;letter-spacing:2px}</style>
 </svg>
