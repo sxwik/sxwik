@@ -125,6 +125,8 @@ jobs:
           rm -rf /tmp/initrd/lib/modules
           mkdir -p /tmp/initrd/lib/modules
           cp -a "$moddir" /tmp/initrd/lib/modules/
+          ln -sf /bin/busybox /tmp/initrd/bin/mkdir
+          ln -sf /bin/busybox /tmp/initrd/bin/mount
           echo "kernel modules copied: $(find "/tmp/initrd/lib/modules/$KERNEL_VERSION" -type f | wc -l)"
           (cd /tmp/initrd && find . -print0 | cpio --null -o -H newc) | gzip -9 > /tmp/initramfs-custom
           test -s /tmp/initramfs-custom
