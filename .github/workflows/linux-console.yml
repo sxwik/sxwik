@@ -25,6 +25,8 @@ env:
   ALPINE: '3.24.1'
   STATE: linux-state.img
   RAM: 256M
+  KERNEL_VERSION: 6.18.35-0-virt
+  LINUX_VIRT_APK: linux-virt-6.18.35-r0.apk
 
 jobs:
   run:
@@ -72,7 +74,7 @@ jobs:
       - name: Install VM tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq qemu-system-x86 qemu-utils e2fsprogs curl unzip jq
+          sudo apt-get install -y -qq qemu-system-x86 qemu-utils e2fsprogs curl unzip jq cpio file gzip xz-utils zstd
 
       - name: Restore persistent disk
         env:
@@ -105,7 +107,7 @@ jobs:
             sudo umount /mnt/sxwik-linux
           fi
 
-      - name: Prepare guest command and init
+      - name: Prepare guest root files
         shell: bash
         run: |
           sudo mkdir -p /mnt/sxwik-linux
@@ -132,11 +134,43 @@ jobs:
           sudo umount /mnt/sxwik-linux
           sudo e2fsck -fy "$STATE" >/dev/null
 
-      - name: Download Alpine kernel
+      - name: Download Alpine kernel and initramfs
         run: |
           base="https://dl-cdn.alpinelinux.org/alpine/v${ALPINE%.*}/releases/x86_64/netboot"
           curl -fsSL "$base/vmlinuz-virt" -o /tmp/vmlinuz
           curl -fsSL "$base/initramfs-virt" -o /tmp/initramfs
+
+      - name: Build root-capable initramfs
+        shell: bash
+        run: |
+          rm -rf /tmp/initrd /tmp/linuxvirt
+          mkdir -p /tmp/initrd /tmp/linuxvirt
+
+          kind=$(file -b /tmp/initramfs)
+          case "$kind" in
+            *gzip*)  gzip -dc /tmp/initramfs | (cd /tmp/initrd && cpio -idm --quiet --no-absolute-filenames) ;;
+            *Zstandard*) zstd -dc /tmp/initramfs | (cd /tmp/initrd && cpio -idm --quiet --no-absolute-filenames) ;;
+            *XZ*) xz -dc /tmp/initramfs | (cd /tmp/initrd && cpio -idm --quiet --no-absolute-filenames) ;;
+            *) echo "unsupported initramfs format: $kind" >&2; exit 1 ;;
+          esac
+
+          curl -fsSL "https://dl-cdn.alpinelinux.org/alpine/v${ALPINE%.*}/main/x86_64/$LINUX_VIRT_APK" -o /tmp/linux-virt.apk
+          tar -xf /tmp/linux-virt.apk -C /tmp/linuxvirt
+          data=$(find /tmp/linuxvirt -maxdepth 1 -type f -name 'data.tar.*' | head -n 1)
+          test -n "$data"
+          mkdir -p /tmp/linuxvirt/root
+          tar -xf "$data" -C /tmp/linuxvirt/root
+
+          test -d "/tmp/linuxvirt/root/lib/modules/$KERNEL_VERSION"
+          rm -rf /tmp/initrd/lib/modules
+          mkdir -p /tmp/initrd/lib/modules
+          cp -a "/tmp/linuxvirt/root/lib/modules/$KERNEL_VERSION" /tmp/initrd/lib/modules/
+
+          test -f "/tmp/initrd/lib/modules/$KERNEL_VERSION/kernel/fs/ext4/ext4.ko.gz"
+          test -f "/tmp/initrd/lib/modules/$KERNEL_VERSION/modules.dep"
+
+          (cd /tmp/initrd && find . -print0 | cpio --null -o -H newc --quiet | gzip -9) > /tmp/initramfs-custom
+          ls -lh /tmp/initramfs-custom
 
       - name: Boot real Linux and execute command
         shell: bash
@@ -147,7 +181,7 @@ jobs:
             -cpu qemu64 \
             -m "$RAM" \
             -kernel /tmp/vmlinuz \
-            -initrd /tmp/initramfs \
+            -initrd /tmp/initramfs-custom \
             -drive file="$STATE",format=raw,if=virtio \
             -append 'root=/dev/vda rw modules=virtio_blk,ext4 rootfstype=ext4 console=ttyS0,115200n8 init=/root/.sxwik-init.sh' \
             -serial stdio \
