@@ -185,13 +185,16 @@ jobs:
             done
           }
 
-          copy_module kernel/drivers/virtio/virtio.ko
-          copy_module kernel/drivers/virtio/virtio_ring.ko
-          copy_module kernel/drivers/virtio/virtio_pci.ko
-          copy_module kernel/drivers/block/virtio_blk.ko
-          copy_module kernel/fs/jbd2/jbd2.ko
-          copy_module kernel/fs/mbcache.ko
-          copy_module kernel/fs/ext4/ext4.ko
+          # Alpine packages kernel modules compressed as .ko.gz. Keep the
+          # exact filenames referenced by modules.dep so modprobe can resolve
+          # the dependency graph inside our minimal initramfs.
+          copy_module kernel/drivers/virtio/virtio.ko.gz
+          copy_module kernel/drivers/virtio/virtio_ring.ko.gz
+          copy_module kernel/drivers/virtio/virtio_pci.ko.gz
+          copy_module kernel/drivers/block/virtio_blk.ko.gz
+          copy_module kernel/fs/jbd2/jbd2.ko.gz
+          copy_module kernel/fs/mbcache.ko.gz
+          copy_module kernel/fs/ext4/ext4.ko.gz
 
           for meta in modules.dep modules.alias modules.builtin modules.symbols; do
             [ -f "$moddir/$meta" ] && cp "$moddir/$meta" "/tmp/initrd/lib/modules/$KERNEL_VERSION/$meta"
