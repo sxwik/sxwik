@@ -1,6 +1,8 @@
 name: SXWIK Linux Console
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       command:
@@ -22,6 +24,7 @@ concurrency:
 jobs:
   run:
     if: >-
+      (github.event_name == 'push' && github.event.head_commit.message == 'ci: boot test echo hello') ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request == null &&
@@ -47,8 +50,10 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             cmd="$DISPATCH_COMMAND"
-          else
+          elif [ "${{ github.event_name }}" = "issue_comment" ]; then
             cmd="$COMMENT_COMMAND"
+          else
+            cmd='echo hello'
           fi
           cmd="${cmd//$'\r'/}"
           if [[ "$cmd" == *$'\n'* ]]; then
