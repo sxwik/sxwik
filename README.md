@@ -1,7 +1,7 @@
 <div align="center">
 
 <a href="https://github.com/sxwik/sxwik/issues/1">
-<img src="./linux/screen.svg?v=34625841375" width="100%" alt="SXWIK Linux">
+<img src="./linux/screen.svg?v=34626192459" width="100%" alt="SXWIK Linux">
 </a>
 
 </div>

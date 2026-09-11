@@ -4,3 +4,4 @@ uname -a
 echo hello
 echo hello
 uname -a
+cat /etc/os-release

@@ -1,38 +1,38 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 900" width="1240" height="900"><rect width="100%" height="100%" rx="18" fill="#050607"/><rect x="1" y="1" width="1238" height="898" rx="17" fill="none" stroke="#30343a"/><rect x="0" y="0" width="1240" height="38" rx="18" fill="#0d0f12"/><circle cx="20" cy="19" r="6" fill="#ff5f57"/><circle cx="40" cy="19" r="6" fill="#febc2e"/><circle cx="60" cy="19" r="6" fill="#28c840"/><text x="620" y="24" text-anchor="middle" class="title">SXWIK LINUX :: ttyS0</text><text x="28" y="58" class="meta">ALPINE 3.24.1 · x86_64 · 512 MiB · QEMU · SHARED STATE</text><text x="28" y="82" class="t">[    1.666021] ata2.00: ATAPI: QEMU DVD-ROM, 2.5+, max UDMA/100</text>
-<text x="28" y="102" class="t">[    1.691540] scsi 1:0:0:0: CD-ROM            QEMU     QEMU DVD-ROM     2.5+ PQ: 0 ANSI: 5</text>
-<text x="28" y="122" class="t">[    2.182283] tsc: Refined TSC clocksource calibration: 2300.097 MHz</text>
-<text x="28" y="142" class="t">[    2.182943] clocksource: tsc: mask: 0xffffffffffffffff max_cycles: 0x212790e9299, max_idle_ns: 440795292660 ns</text>
-<text x="28" y="162" class="t">[    2.185502] clocksource: Switched to clocksource tsc</text>
-<text x="28" y="182" class="t">[    3.123008] Freeing initrd memory: 34228K</text>
-<text x="28" y="202" class="t">[    3.295180] Loaded X.509 cert 'alpinelinux.org: Alpine Linux kernel key: d76a695f66ad9cd28f5c22a8508f36e91f521f7a'</text>
-<text x="28" y="222" class="t">[    3.311759] Demotion targets for Node 0: null</text>
-<text x="28" y="242" class="t">[    3.313508] Key type .fscrypt registered</text>
-<text x="28" y="262" class="t">[    3.313615] Key type fscrypt-provisioning registered</text>
-<text x="28" y="282" class="t">[    3.425201] Freeing unused kernel image (initmem) memory: 2996K</text>
-<text x="28" y="302" class="t">[    3.425732] Write protecting the kernel read-only data: 26624k</text>
-<text x="28" y="322" class="t">[    3.428483] Freeing unused kernel image (text/rodata gap) memory: 1732K</text>
-<text x="28" y="342" class="t">[    3.429134] Freeing unused kernel image (rodata/data gap) memory: 396K</text>
-<text x="28" y="362" class="t">[    3.429758] rodata_test: all tests were successful</text>
-<text x="28" y="382" class="t">[    3.430085] Run /bin/sh as init process</text>
-<text x="28" y="402" class="t">/bin/sh: can't access tty; job control turned off</text>
-<text x="28" y="422" class="t">~ #  [6nmount -t devtmpfs devtmpfs /dev</text>
-<text x="28" y="442" class="t">~ # modprobe virtio_pci</text>
-<text x="28" y="462" class="t">~ # modprobe virtio_blk</text>
-<text x="28" y="482" class="t">[    4.116577] virtio_blk virtio0: 1/0/0 default/read/poll queues</text>
-<text x="28" y="502" class="t">[    4.127030] virtio_blk virtio0: [vda] 131072 512-byte logical blocks (67.1 MB/64.0 MiB)</text>
-<text x="28" y="522" class="t">~ # modprobe ext4</text>
-<text x="28" y="542" class="t">~ # mkdir -p /state</text>
-<text x="28" y="562" class="t">~ # mount -t ext4 /dev/vda /state</text>
-<text x="28" y="582" class="t">[    4.736127] EXT4-fs (vda): mounted filesystem 20cda063-a880-4f8e-8415-a7a5cc772d2b r/w with ordered data mode. Quot</text>
-<text x="28" y="602" class="t">~ # chroot /state /root/.sxwik-init.sh</text>
-<text x="28" y="622" class="t">SXWIK LINUX :: shared guest</text>
-<text x="28" y="642" class="t">Linux 6.18.35-0-virt x86_64 Linux</text>
-<text x="28" y="662" class="t"></text>
-<text x="28" y="682" class="t">sxwik@linux:~$ uname -a</text>
-<text x="28" y="702" class="t">Linux (none) 6.18.35-0-virt #1-Alpine SMP PREEMPT_DYNAMIC 2026-06-09 12:34:47 x86_64 Linux</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 900" width="1240" height="900"><rect width="100%" height="100%" rx="18" fill="#050607"/><rect x="1" y="1" width="1238" height="898" rx="17" fill="none" stroke="#30343a"/><rect x="0" y="0" width="1240" height="38" rx="18" fill="#0d0f12"/><circle cx="20" cy="19" r="6" fill="#ff5f57"/><circle cx="40" cy="19" r="6" fill="#febc2e"/><circle cx="60" cy="19" r="6" fill="#28c840"/><text x="620" y="24" text-anchor="middle" class="title">SXWIK LINUX :: ttyS0</text><text x="28" y="58" class="meta">ALPINE 3.24.1 · x86_64 · 512 MiB · QEMU · SHARED STATE</text><text x="28" y="82" class="t">[    2.600509] Freeing initrd memory: 34228K</text>
+<text x="28" y="102" class="t">[    2.732466] Loaded X.509 cert 'alpinelinux.org: Alpine Linux kernel key: d76a695f66ad9cd28f5c22a8508f36e91f521f7a'</text>
+<text x="28" y="122" class="t">[    2.746986] Demotion targets for Node 0: null</text>
+<text x="28" y="142" class="t">[    2.748300] Key type .fscrypt registered</text>
+<text x="28" y="162" class="t">[    2.748426] Key type fscrypt-provisioning registered</text>
+<text x="28" y="182" class="t">[    2.845812] Freeing unused kernel image (initmem) memory: 2996K</text>
+<text x="28" y="202" class="t">[    2.846332] Write protecting the kernel read-only data: 26624k</text>
+<text x="28" y="222" class="t">[    2.848970] Freeing unused kernel image (text/rodata gap) memory: 1732K</text>
+<text x="28" y="242" class="t">[    2.849475] Freeing unused kernel image (rodata/data gap) memory: 396K</text>
+<text x="28" y="262" class="t">[    2.850071] rodata_test: all tests were successful</text>
+<text x="28" y="282" class="t">[    2.850382] Run /bin/sh as init process</text>
+<text x="28" y="302" class="t">/bin/sh: can't access tty; job control turned off</text>
+<text x="28" y="322" class="t">~ #  [6nmount -t devtmpfs devtmpfs /dev</text>
+<text x="28" y="342" class="t">~ # modprobe virtio_pci</text>
+<text x="28" y="362" class="t">~ # modprobe virtio_blk</text>
+<text x="28" y="382" class="t">[    3.387512] virtio_blk virtio0: 1/0/0 default/read/poll queues</text>
+<text x="28" y="402" class="t">[    3.395682] virtio_blk virtio0: [vda] 131072 512-byte logical blocks (67.1 MB/64.0 MiB)</text>
+<text x="28" y="422" class="t">~ # modprobe ext4</text>
+<text x="28" y="442" class="t">~ # mkdir -p /state</text>
+<text x="28" y="462" class="t">~ # mount -t ext4 /dev/vda /state</text>
+<text x="28" y="482" class="t">[    3.632884] EXT4-fs (vda): mounted filesystem 20cda063-a880-4f8e-8415-a7a5cc772d2b r/w with ordered data mode. Quot</text>
+<text x="28" y="502" class="t">~ # chroot /state /root/.sxwik-init.sh</text>
+<text x="28" y="522" class="t">SXWIK LINUX :: shared guest</text>
+<text x="28" y="542" class="t">Linux 6.18.35-0-virt x86_64 Linux</text>
+<text x="28" y="562" class="t"></text>
+<text x="28" y="582" class="t">sxwik@linux:~$ cat /etc/os-release</text>
+<text x="28" y="602" class="t">NAME="Alpine Linux"</text>
+<text x="28" y="622" class="t">ID=alpine</text>
+<text x="28" y="642" class="t">VERSION_ID=3.24.1</text>
+<text x="28" y="662" class="t">PRETTY_NAME="Alpine Linux v3.24"</text>
+<text x="28" y="682" class="t">HOME_URL="https://alpinelinux.org/"</text>
+<text x="28" y="702" class="t">BUG_REPORT_URL="https://gitlab.alpinelinux.org/alpine/aports/-/issues"</text>
 <text x="28" y="722" class="t"></text>
 <text x="28" y="742" class="t">SXWIK LINUX :: syncing</text>
 <text x="28" y="762" class="t">SXWIK_DONE:0</text>
-<text x="28" y="782" class="t">[    4.918307] ACPI: PM: Preparing to enter system sleep state S5</text>
-<text x="28" y="802" class="t">[    4.919093] reboot: Restarting system</text>
-<text x="28" y="822" class="t">[    4.919228] reboot: machine restart</text><style>.t{font:14px monospace;fill:#d7dbe0;white-space:pre}.meta{font:11px monospace;fill:#7f8792}.title{font:11px monospace;fill:#9aa2ad;letter-spacing:2px}</style></svg>
+<text x="28" y="782" class="t">[    3.821786] ACPI: PM: Preparing to enter system sleep state S5</text>
+<text x="28" y="802" class="t">[    3.822403] reboot: Restarting system</text>
+<text x="28" y="822" class="t">[    3.822540] reboot: machine restart</text><style>.t{font:14px monospace;fill:#d7dbe0;white-space:pre}.meta{font:11px monospace;fill:#7f8792}.title{font:11px monospace;fill:#9aa2ad;letter-spacing:2px}</style></svg>
