@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 560" width="1240" height="560">
+<rect width="100%" height="100%" rx="18" fill="#050607"/>
+<rect x="1" y="1" width="1238" height="558" rx="17" fill="none" stroke="#30343a"/>
+<rect width="1240" height="38" rx="18" fill="#0d0f12"/>
+<circle cx="20" cy="19" r="6" fill="#ff5f57"/><circle cx="40" cy="19" r="6" fill="#febc2e"/><circle cx="60" cy="19" r="6" fill="#28c840"/>
+<text x="620" y="24" text-anchor="middle" class="title">SXWIK LINUX :: ttyS0</text>
+<text x="28" y="58" class="meta">ALPINE 3.24.1 · x86_64 · 64 MiB · QEMU · SHARED STATE</text>
+<text x="28" y="92" class="t">SXWIK LINUX :: shared guest</text>
+<text x="28" y="112" class="t">Linux 6.x x86_64 GNU/Linux</text>
+<text x="28" y="152" class="t">sxwik@linux:~$ uname -a</text>
+<text x="28" y="172" class="t">Linux sxwik 6.x x86_64 GNU/Linux</text>
+<text x="28" y="212" class="t">sxwik@linux:~$ ls</text>
+<text x="28" y="232" class="t">bin   dev   etc   home   lib   media   mnt   proc   root   sbin   tmp   usr</text>
+<text x="28" y="272" class="t">sxwik@linux:~$ whoami</text>
+<text x="28" y="292" class="t">root</text>
+<text x="28" y="332" class="t">sxwik@linux:~$ echo "waiting for input..."</text>
+<text x="28" y="352" class="t">waiting for input...</text>
+<text x="28" y="392" class="t">sxwik@linux:~$ █</text>
+<text x="28" y="440" class="meta">PUBLIC SHARED CONSOLE · commands execute inside the real guest VM</text>
+<style>.t{font:16px monospace;fill:#d7dbe0}.meta{font:11px monospace;fill:#7f8792}.title{font:11px monospace;fill:#9aa2ad;letter-spacing:2px}</style>
+</svg>
