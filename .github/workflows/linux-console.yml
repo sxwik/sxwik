@@ -1,6 +1,8 @@
 name: SXWIK Linux Console
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       command:
@@ -19,9 +21,15 @@ concurrency:
   group: sxwik-linux-console
   cancel-in-progress: false
 
+env:
+  ALPINE: '3.24.1'
+  STATE: linux-state.img
+  RAM: 256M
+
 jobs:
   run:
     if: >-
+      (github.event_name == 'push' && github.event.head_commit.message == 'ci: boot test echo hello') ||
       github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request == null &&
@@ -30,9 +38,6 @@ jobs:
        github.event.comment.user.type != 'Bot')
     runs-on: ubuntu-latest
     timeout-minutes: 8
-    env:
-      ALPINE: '3.24.1'
-      STATE: linux-state.img
 
     steps:
       - name: Checkout
@@ -47,8 +52,10 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             cmd="$DISPATCH_COMMAND"
-          else
+          elif [ "${{ github.event_name }}" = "issue_comment" ]; then
             cmd="$COMMENT_COMMAND"
+          else
+            cmd='echo hello'
           fi
           cmd="${cmd//$'\r'/}"
           if [[ "$cmd" == *$'\n'* ]]; then
@@ -73,8 +80,10 @@ jobs:
         shell: bash
         run: |
           url=$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" \
-            --jq '.artifacts[] | select((.name | startswith("sxwik-linux-state-")) and .expired == false) | .archive_download_url' \
-            | head -n 1)
+            --jq '.artifacts[] | select((.name | startswith("sxwik-linux-state-")) and .expired == false) | [.created_at,.archive_download_url] | @tsv' \
+            | sort -r \
+            | head -n 1 \
+            | cut -f2-)
 
           if [ -n "$url" ]; then
             echo 'restoring previous VM state'
@@ -93,9 +102,35 @@ jobs:
             sudo mkdir -p /mnt/sxwik-linux
             sudo mount -o loop "$STATE" /mnt/sxwik-linux
             sudo tar xpf /tmp/alpine.tar.gz -C /mnt/sxwik-linux
-            sudo mkdir -p /mnt/sxwik-linux/proc /mnt/sxwik-linux/sys /mnt/sxwik-linux/dev /mnt/sxwik-linux/root
             sudo umount /mnt/sxwik-linux
           fi
+
+      - name: Prepare guest command and init
+        shell: bash
+        run: |
+          sudo mkdir -p /mnt/sxwik-linux
+          sudo mount -o loop "$STATE" /mnt/sxwik-linux
+          sudo install -m 0644 /tmp/command.txt /mnt/sxwik-linux/root/.sxwik-command
+          sudo tee /mnt/sxwik-linux/root/.sxwik-init.sh >/dev/null <<'EOF'
+          #!/bin/sh
+          export PS1='sxwik@linux:~$ '
+          cd /root
+          echo 'SXWIK LINUX :: shared guest'
+          uname -srmo
+          printf '\n'
+          printf 'sxwik@linux:~$ %s\n' "$(cat /root/.sxwik-command)"
+          sh -c "$(cat /root/.sxwik-command)"
+          rc=$?
+          printf '\nSXWIK LINUX :: syncing\n'
+          sync
+          sleep 1
+          halt -f
+          exit "$rc"
+          EOF
+          sudo chmod 0755 /mnt/sxwik-linux/root/.sxwik-init.sh
+          sudo sync
+          sudo umount /mnt/sxwik-linux
+          sudo e2fsck -fy "$STATE" >/dev/null
 
       - name: Download Alpine kernel
         run: |
@@ -106,32 +141,19 @@ jobs:
       - name: Boot real Linux and execute command
         shell: bash
         run: |
-          cmd=$(cat /tmp/command.txt)
-          {
-            printf 'export PS1="sxwik@linux:~$ "\n'
-            printf 'cd /root\n'
-            printf 'echo "SXWIK LINUX :: shared guest"\n'
-            printf 'uname -srmo\n'
-            printf 'printf "\\n"\n'
-            printf '%s\n' "$cmd"
-            printf 'printf "\\nSXWIK LINUX :: syncing\\n"\n'
-            printf 'sync\n'
-            printf 'halt -f\n'
-          } > /tmp/guest-input
-
           set +e
-          timeout 60s qemu-system-x86_64 \
+          timeout 65s qemu-system-x86_64 \
             -machine accel=tcg \
             -cpu qemu64 \
-            -m 256M \
+            -m "$RAM" \
             -kernel /tmp/vmlinuz \
             -initrd /tmp/initramfs \
             -drive file="$STATE",format=raw,if=virtio \
-            -append 'root=/dev/vda rw modules=virtio_blk,ext4 rootfstype=ext4 console=ttyS0,115200n8 init=/bin/sh' \
+            -append 'root=/dev/vda rw modules=virtio_blk,ext4 rootfstype=ext4 console=ttyS0,115200n8 init=/root/.sxwik-init.sh' \
             -serial stdio \
             -display none \
             -monitor none \
-            -no-reboot < /tmp/guest-input > /tmp/console.log 2>&1
+            -no-reboot > /tmp/console.log 2>&1
           rc=$?
           set -e
 
@@ -162,7 +184,7 @@ jobs:
           <rect x="0" y="0" width="1240" height="38" rx="18" fill="#0d0f12"/>
           <circle cx="20" cy="19" r="6" fill="#ff5f57"/><circle cx="40" cy="19" r="6" fill="#febc2e"/><circle cx="60" cy="19" r="6" fill="#28c840"/>
           <text x="620" y="24" text-anchor="middle" class="title">SXWIK LINUX :: ttyS0</text>
-          <text x="28" y="58" class="meta">ALPINE {html.escape('${ALPINE}')} · x86_64 · 256 MiB · QEMU · SHARED STATE</text>
+          <text x="28" y="58" class="meta">ALPINE {html.escape('${ALPINE}')} · x86_64 · {html.escape('${RAM}')} · QEMU · SHARED STATE</text>
           {rows}
           <style>.t{{font:14px monospace;fill:#d7dbe0;white-space:pre}}.meta{{font:11px monospace;fill:#7f8792}}.title{{font:11px monospace;fill:#9aa2ad;letter-spacing:2px}}</style>
           </svg>'''
