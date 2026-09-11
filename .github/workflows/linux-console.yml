@@ -135,6 +135,7 @@ jobs:
           ln -sf /bin/busybox /tmp/initrd/bin/sync
           mkdir -p /tmp/initrd/sbin
           ln -sf /bin/busybox /tmp/initrd/sbin/reboot
+          ln -sf /bin/busybox /tmp/initrd/bin/chroot
           echo "kernel modules copied: $(find "/tmp/initrd/lib/modules/$KERNEL_VERSION" -type f | wc -l)"
           (cd /tmp/initrd && find . -print0 | cpio --null -o -H newc) | gzip -9 > /tmp/initramfs-custom
           test -s /tmp/initramfs-custom
@@ -161,7 +162,7 @@ jobs:
           printf 'modprobe ext4\n' >&3
           printf 'mkdir -p /state\n' >&3
           printf 'mount -t ext4 /dev/vda /state\n' >&3
-          printf 'exec /state/root/.sxwik-init.sh\n' >&3
+          printf 'chroot /state /root/.sxwik-init.sh\n' >&3
           exec 3>&-
           done=0
           for _ in $(seq 1 90); do
