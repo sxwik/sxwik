@@ -16,7 +16,7 @@ permissions:
   actions: write
 
 concurrency:
-  group: sxwik-linux-console
+  group: sxwik-doom
   cancel-in-progress: true
 
 jobs:
@@ -33,6 +33,10 @@ jobs:
     env:
       DISPLAY: ':99'
       DOOM_COMMAND: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.command || github.event.comment.body }}
+      SDL_VIDEODRIVER: x11
+      SDL_AUDIODRIVER: dummy
+      SDL_RENDER_DRIVER: software
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -56,36 +60,58 @@ jobs:
       - name: Install Doom stack
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq chocolate-doom freedoom xvfb xdotool imagemagick
+          sudo apt-get install -y -qq chocolate-doom freedoom xvfb xdotool imagemagick x11-utils x11-xkb-utils xkb-data
+          sudo apt-get install --reinstall -y -qq xvfb xserver-common x11-xkb-utils xkb-data
 
       - name: Locate Freedoom IWAD
         shell: bash
         run: |
-          IWAD=$(find /usr/share -type f \( -iname 'freedoom1.wad' -o -iname 'freedoom1.wad.gz' -o -iname 'doom1.wad' \) 2>/dev/null | head -n 1)
-          [ -n "$IWAD" ] || { echo 'Freedoom IWAD not found' >&2; find /usr/share -iname '*freedoom*' -o -iname '*.wad' 2>/dev/null | head -n 50; exit 1; }
-          case "$IWAD" in
-            *.gz) gunzip -c "$IWAD" > /tmp/freedoom1.wad; IWAD=/tmp/freedoom1.wad ;;
-          esac
+          IWAD="$(dpkg -L freedoom | grep -E '/freedoom1\.wad$' | head -n 1 || true)"
+          if [ -z "$IWAD" ]; then
+            IWAD=$(find /usr/share/games /usr/share/doom -type f -iname 'freedoom1.wad' 2>/dev/null | head -n 1 || true)
+          fi
+          [ -n "$IWAD" ] || { echo 'Freedoom IWAD not found' >&2; dpkg -L freedoom || true; exit 1; }
           echo "IWAD=$IWAD" >> "$GITHUB_ENV"
           echo "Using $IWAD"
 
       - name: Start virtual display
         shell: bash
         run: |
-          Xvfb "$DISPLAY" -screen 0 1280x720x24 -ac +extension RANDR >/tmp/xvfb.log 2>&1 &
-          echo $! >/tmp/xvfb.pid
-          for _ in $(seq 1 20); do
-            xdpyinfo -display "$DISPLAY" >/dev/null 2>&1 && break
+          rm -f /tmp/.X99-lock
+          rm -rf /tmp/.X11-unix/X99
+          Xvfb "$DISPLAY" \
+            -screen 0 1280x720x24 \
+            -ac \
+            -nolisten tcp \
+            -xkbdir /usr/share/X11/xkb \
+            >/tmp/xvfb.log 2>&1 &
+          XVFB_PID=$!
+          echo "$XVFB_PID" >/tmp/xvfb.pid
+
+          for _ in $(seq 1 40); do
+            if xdpyinfo -display "$DISPLAY" >/dev/null 2>&1; then
+              echo "Xvfb is ready on $DISPLAY"
+              exit 0
+            fi
+            if ! kill -0 "$XVFB_PID" 2>/dev/null; then
+              echo 'Xvfb exited before the display became ready' >&2
+              cat /tmp/xvfb.log >&2 || true
+              exit 1
+            fi
             sleep 0.25
           done
-          xdpyinfo -display "$DISPLAY" >/dev/null 2>&1 || { cat /tmp/xvfb.log; exit 1; }
+
+          echo 'Xvfb did not become ready' >&2
+          cat /tmp/xvfb.log >&2 || true
+          ps -ef | grep '[X]vfb' || true
+          exit 1
 
       - name: Boot Chocolate Doom
         shell: bash
         run: |
-          mkdir -p /tmp/doom-home
+          mkdir -p /tmp/doom-home/saves
           export HOME=/tmp/doom-home
-          export SDL_VIDEODRIVER=x11
+
           nohup chocolate-doom \
             -iwad "$IWAD" \
             -window \
@@ -96,13 +122,28 @@ jobs:
             -nosfx \
             -savedir /tmp/doom-home/saves \
             >/tmp/chocolate-doom.log 2>&1 &
-          echo $! >/tmp/doom.pid
-          for _ in $(seq 1 40); do
-            if xdotool search --onlyvisible --name 'Chocolate Doom' >/dev/null 2>&1; then break; fi
+          DOOM_PID=$!
+          echo "$DOOM_PID" >/tmp/doom.pid
+
+          for _ in $(seq 1 60); do
+            if xdotool search --onlyvisible --name 'Chocolate Doom' >/dev/null 2>&1; then
+              echo 'Chocolate Doom window is ready'
+              break
+            fi
+            if ! kill -0 "$DOOM_PID" 2>/dev/null; then
+              echo 'Chocolate Doom exited during startup' >&2
+              cat /tmp/chocolate-doom.log >&2 || true
+              exit 1
+            fi
             sleep 0.25
           done
-          xdotool search --onlyvisible --name 'Chocolate Doom' >/dev/null 2>&1 || { cat /tmp/chocolate-doom.log; exit 1; }
-          sleep 0.5
+
+          WINDOW=$(xdotool search --onlyvisible --name 'Chocolate Doom' | tail -n 1 || true)
+          [ -n "$WINDOW" ] || { echo 'Chocolate Doom window was not found' >&2; cat /tmp/chocolate-doom.log >&2 || true; exit 1; }
+          xdotool windowactivate --sync "$WINDOW"
+          sleep 1
+
+          echo 'Doom is booted; capturing the initial title screen.'
 
       - name: Execute stacked Doom inputs
         env:
@@ -112,7 +153,7 @@ jobs:
       - name: Capture Doom screen
         shell: bash
         run: |
-          sleep 0.25
+          sleep 0.5
           mkdir -p linux
           import -display "$DISPLAY" -window root -crop 1280x720+0+0 -quality 92 linux/screen.png
           test -s linux/screen.png
