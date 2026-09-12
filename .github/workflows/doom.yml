@@ -167,9 +167,9 @@ jobs:
 
           WINDOW=$(xdotool search --onlyvisible --name 'Chocolate Doom' | tail -n 1 || true)
           [ -n "$WINDOW" ] || { echo 'Chocolate Doom window was not found' >&2; cat /tmp/chocolate-doom.log >&2 || true; exit 1; }
-          xdotool windowactivate --sync "$WINDOW"
+          echo "DOOM_WINDOW=$WINDOW" >> "$GITHUB_ENV"
           sleep 1
-          echo 'Doom is booted; the title screen should now be visible.'
+          echo "Doom is booted in window $WINDOW; the title screen should now be visible."
 
       - name: Execute stacked Doom inputs
         env:
