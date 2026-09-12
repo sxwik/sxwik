@@ -13,8 +13,7 @@ jobs:
     if: >-
       github.event.issue.pull_request == null &&
       (github.event.issue.title == '🖥️ SXWIK LINUX CONSOLE' || github.event.issue.title == 'SXWIK LINUX CONSOLE') &&
-      github.event.comment.user.type != 'Bot' &&
-      !startsWith(github.event.comment.body, 'doom')
+      github.event.comment.user.type != 'Bot'
     runs-on: ubuntu-latest
     steps:
       - name: Dispatch Linux Console
@@ -22,6 +21,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CMD: ${{ github.event.comment.body }}
           ISSUE: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+        shell: bash
         run: |
-          gh workflow run linux-console.yml --ref main -f command="$CMD" -f issue="$ISSUE"
-          gh issue comment "$ISSUE" --body "Linux command queued in the persistent guest."
+          gh api --method POST \
+            "repos/$REPO/actions/workflows/linux-console-fixed.yml/dispatches" \
+            -f ref=main \
+            -f "inputs[command]=$CMD" \
+            -f "inputs[issue]=$ISSUE"
+          gh issue comment "$ISSUE" --body "Linux command queued in the persistent Alpine guest."
