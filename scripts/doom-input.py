@@ -84,7 +84,7 @@ def quit_game() -> None:
 
 def force_kill_game() -> None:
     """Immediately terminate Chocolate Doom; do not use Doom's menu at all."""
-    print("SXWIK DOOM :: FORCE KILL", flush=True)
+    print("SXWIK DOOM :: FORCE KILL (SIGKILL)", flush=True)
     subprocess.run(["pkill", "-KILL", "-x", "chocolate-doom"], check=False)
     # Be defensive if the executable is wrapped or renamed by the package.
     subprocess.run(["pkill", "-KILL", "-f", "/chocolate-doom"], check=False)
@@ -278,6 +278,14 @@ def main() -> int:
     if len(tokens) > 80:
         print("too many Doom actions (max 80)", file=sys.stderr)
         return 2
+
+    # Nuclear commands must not depend on the X window still existing.
+    if any(parse_count(token)[0].lower() in FORCE_KILL_ACTIONS for token in tokens):
+        print("Doom transport: FORCE KILL", flush=True)
+        for i, token in enumerate(tokens, 1):
+            print(f"[{i:02d}] {token}", flush=True)
+            execute(token)
+        return 0
 
     window = WINDOW
     if not window:
