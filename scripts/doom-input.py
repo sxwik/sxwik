@@ -166,6 +166,22 @@ def normalize_tokens(tokens: list[str]) -> list[str]:
     return out
 
 
+def find_window() -> str | None:
+    try:
+        result = subprocess.run(
+            ["xdotool", "search", "--onlyvisible", "--name", "Chocolate Doom"],
+            env={**os.environ, "DISPLAY": DISPLAY},
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        print("xdotool is not installed", file=sys.stderr)
+        return None
+    windows = [line.strip() for line in result.stdout.splitlines() if line.strip()]
+    return windows[-1] if windows else None
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         print("usage: doom-input.py 'doom !w !w !d !space'", file=sys.stderr)
@@ -184,35 +200,33 @@ def main() -> int:
         return 2
 
     if not tokens:
-        # Boot into a fresh game: Enter opens New Game, Enter accepts the
-        # easiest skill. This makes bare `doom` visibly enter gameplay.
-        tokens = ["!enter", "!enter", "!wait:900"]
+        # Bare `doom` means: boot Chocolate Doom and leave the title/home screen visible.
+        tokens = ["!wait:800"]
 
     if len(tokens) > 80:
         print("too many Doom actions (max 80)", file=sys.stderr)
         return 2
 
+    window = None
     for _ in range(30):
-        try:
-            result = subprocess.run(
-                ["xdotool", "search", "--onlyvisible", "--name", "Chocolate Doom"],
-                env={**os.environ, "DISPLAY": DISPLAY},
-                check=False,
-                capture_output=True,
-                text=True,
-            )
-            windows = [line for line in result.stdout.splitlines() if line.strip()]
-            if windows:
-                run("windowactivate", "--sync", windows[-1])
-                break
-        except FileNotFoundError:
-            print("xdotool is not installed", file=sys.stderr)
-            return 1
+        window = find_window()
+        if window:
+            break
         time.sleep(0.25)
-    else:
+    if not window:
         print("Chocolate Doom window did not appear", file=sys.stderr)
         return 1
 
+    # GitHub Actions runners have no window manager. `windowactivate` therefore
+    # fails with _NET_ACTIVE_WINDOW errors. The X server already has the SDL
+    # window; use XSetInputFocus directly instead and tolerate focus refusal.
+    subprocess.run(
+        ["xdotool", "windowfocus", "--sync", window],
+        env={**os.environ, "DISPLAY": DISPLAY},
+        check=False,
+    )
+
+    print(f"Doom window: {window}")
     print(f"Doom actions: {len(tokens)}")
     for i, token in enumerate(tokens, 1):
         print(f"[{i:02d}] {token}")
