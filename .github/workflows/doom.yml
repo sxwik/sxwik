@@ -58,9 +58,10 @@ jobs:
           ISSUE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.issue || github.event.issue.number }}
         shell: bash
         run: |
-          gh workflow run linux-console.yml \
-            --repo "$GITHUB_REPOSITORY" \
-            --ref main \
-            -f command="$DOOM_COMMAND" \
-            -f issue="$ISSUE"
+          set -euo pipefail
+          gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/linux-console.yml/dispatches" \
+            -f ref=main \
+            -f "inputs[command]=$DOOM_COMMAND" \
+            -f "inputs[issue]=$ISSUE"
           echo 'Doom has been routed into the Alpine Linux guest.'
