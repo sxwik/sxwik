@@ -31,7 +31,7 @@ env:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -48,10 +48,6 @@ jobs:
           [[ "$cmd" != *$'\n'* ]] || { echo 'multiline commands are disabled' >&2; exit 1; }
           [ -n "${cmd//[[:space:]]/}" ] || { echo 'empty command' >&2; exit 1; }
           [ ${#cmd} -le 240 ] || { echo 'command too long' >&2; exit 1; }
-          if [[ "$cmd" =~ ^[Dd][Oo][Oo][Mm]([[:space:]]|$) ]]; then
-            echo 'doom commands must be routed through SXWIK DOOM' >&2
-            exit 1
-          fi
           printf '%s' "$cmd" > /tmp/command.txt
           echo "command=$cmd" >> "$GITHUB_OUTPUT"
 
@@ -73,29 +69,103 @@ jobs:
             cp /tmp/state/linux-state.img "$STATE"
           else
             curl -fsSL "$VIRT_NETBOOT/../../../releases/x86_64/alpine-minirootfs-3.24.1-x86_64.tar.gz" -o /tmp/alpine.tar.gz
-            qemu-img create -f raw "$STATE" 64M >/dev/null
+            qemu-img create -f raw "$STATE" 512M >/dev/null
             mkfs.ext4 -q "$STATE"
             sudo mkdir -p /mnt/sxwik-linux
             sudo mount -o loop "$STATE" /mnt/sxwik-linux
             sudo tar xpf /tmp/alpine.tar.gz -C /mnt/sxwik-linux
             sudo umount /mnt/sxwik-linux
           fi
+          size=$(stat -c '%s' "$STATE")
+          if [ "$size" -lt $((512*1024*1024)) ]; then
+            qemu-img resize "$STATE" 512M >/dev/null
+            e2fsck -fy "$STATE" >/dev/null
+            resize2fs "$STATE" >/dev/null
+          fi
 
-      - name: Prepare guest command
+      - name: Prepare guest command and Doom runtime
         shell: bash
         run: |
           sudo mkdir -p /mnt/sxwik-linux
           sudo mount -o loop "$STATE" /mnt/sxwik-linux
           sudo install -m 0644 /tmp/command.txt /mnt/sxwik-linux/root/.sxwik-command
+          sudo install -m 0755 scripts/doom-input.py /mnt/sxwik-linux/root/doom-input.py
           sudo tee /mnt/sxwik-linux/root/.sxwik-init.sh >/dev/null <<'EOF'
           #!/bin/sh
+          set -u
           cd /root
+          CMD="$(cat /root/.sxwik-command)"
           echo 'SXWIK LINUX :: shared guest'
           uname -srmo
           printf '\n'
-          printf 'sxwik@linux:~$ %s\n' "$(cat /root/.sxwik-command)"
-          sh -c "$(cat /root/.sxwik-command)"
-          rc=$?
+          printf 'sxwik@linux:~$ %s\n' "$CMD"
+
+          is_doom=0
+          case "$CMD" in
+            [Dd][Oo][Oo][Mm]|[Dd][Oo][Oo][Mm]\ *) is_doom=1 ;;
+          esac
+
+          if [ "$is_doom" -eq 1 ]; then
+            echo 'SXWIK LINUX :: Doom is running INSIDE Alpine'
+
+            # The Doom stack is installed into the persistent Alpine disk once.
+            # Subsequent runs reuse it instead of installing again.
+            if ! command -v chocolate-doom >/dev/null 2>&1; then
+              echo 'Installing Doom stack in Alpine (first run only)...'
+              cat > /etc/apk/repositories <<'REPOS'
+          https://dl-cdn.alpinelinux.org/alpine/v3.24/main
+          https://dl-cdn.alpinelinux.org/alpine/v3.24/community
+          https://dl-cdn.alpinelinux.org/alpine/edge/main
+          https://dl-cdn.alpinelinux.org/alpine/edge/community
+          https://dl-cdn.alpinelinux.org/alpine/edge/testing
+          REPOS
+              apk update >/dev/null
+              apk add --no-cache python3 chocolate-doom freedoom xvfb xdotool openbox imagemagick x11-utils x11-xkb-utils xkbcomp xkeyboard-config font-cursor-misc font-misc-misc >/dev/null
+            fi
+
+            export DISPLAY=:99
+            rm -f /root/doom.png
+            Xvfb :99 -screen 0 1280x720x24 -ac -nolisten tcp >/tmp/xvfb.log 2>&1 &
+            xvfb_pid=$!
+            sleep 1
+            if ! kill -0 "$xvfb_pid" 2>/dev/null; then
+              Xvfb :99 -screen 0 1280x720x24 -ac -nolisten tcp -kb >/tmp/xvfb.log 2>&1 &
+              xvfb_pid=$!
+              sleep 1
+            fi
+            openbox >/tmp/openbox.log 2>&1 &
+            openbox_pid=$!
+            sleep 0.5
+
+            IWAD="$(find /usr/share /usr/local/share -type f -name 'freedoom1.wad' 2>/dev/null | head -n 1)"
+            if [ -z "$IWAD" ]; then
+              echo 'Freedoom IWAD not found' >&2
+              kill "$openbox_pid" "$xvfb_pid" 2>/dev/null || true
+              exit 1
+            fi
+
+            mkdir -p /root/.doom-saves
+            chocolate-doom -iwad "$IWAD" -window -width 1280 -height 720 -nograbmouse -nomusic -nosfx -savedir /root/.doom-saves >/tmp/chocolate-doom.log 2>&1 &
+            doom_pid=$!
+            export DOOM_WINDOW=''
+            python3 /root/doom-input.py "$CMD"
+            input_rc=$?
+            sleep 0.35
+
+            # Capture the game from the guest X server, then close Doom and return to Alpine.
+            import -display "$DISPLAY" -window root -crop 1280x720+0+0 -quality 92 /root/doom.png
+            kill "$doom_pid" 2>/dev/null || true
+            kill "$openbox_pid" "$xvfb_pid" 2>/dev/null || true
+            wait "$doom_pid" 2>/dev/null || true
+            echo 'SXWIK DOOM :: closed, returning to Alpine shell'
+            echo "SXWIK_DOOM_RC:$input_rc"
+            sync
+            rc="$input_rc"
+          else
+            sh -c "$CMD"
+            rc=$?
+          fi
+
           printf '\nSXWIK LINUX :: syncing\n'
           sync
           printf 'SXWIK_DONE:%s\n' "$rc"
@@ -127,13 +197,9 @@ jobs:
           rm -rf /tmp/initrd/lib/modules
           mkdir -p /tmp/initrd/lib/modules
           cp -a "$moddir" /tmp/initrd/lib/modules/
-          ln -sf /bin/busybox /tmp/initrd/bin/mkdir
-          ln -sf /bin/busybox /tmp/initrd/bin/mount
-          ln -sf /bin/busybox /tmp/initrd/bin/sh
-          ln -sf /bin/busybox /tmp/initrd/bin/cat
-          ln -sf /bin/busybox /tmp/initrd/bin/uname
-          ln -sf /bin/busybox /tmp/initrd/bin/sync
-          ln -sf /bin/busybox /tmp/initrd/bin/chroot
+          for applet in mkdir mount sh cat uname sync chroot ip ifconfig udhcpc route; do
+            ln -sf /bin/busybox "/tmp/initrd/bin/$applet"
+          done
           mkdir -p /tmp/initrd/sbin
           ln -sf /bin/busybox /tmp/initrd/sbin/reboot
           echo "kernel modules copied: $(find "/tmp/initrd/lib/modules/$KERNEL_VERSION" -type f | wc -l)"
@@ -147,7 +213,7 @@ jobs:
           rm -f /tmp/qemu.in /tmp/console.log
           mkfifo /tmp/qemu.in
           exec 3<>/tmp/qemu.in
-          qemu-system-x86_64 -machine accel=tcg -cpu qemu64 -m "$RAM" -kernel /tmp/vmlinuz -initrd /tmp/initramfs-custom -drive file="$STATE",format=raw,if=virtio -append 'console=ttyS0,115200n8 rdinit=/bin/sh' -serial stdio -display none -monitor none -no-reboot <&3 > /tmp/console.log 2>&1 &
+          qemu-system-x86_64 -machine accel=tcg -cpu qemu64 -m "$RAM" -kernel /tmp/vmlinuz -initrd /tmp/initramfs-custom -drive file="$STATE",format=raw,if=virtio -netdev user,id=net0 -device virtio-net-pci,netdev=net0 -append 'console=ttyS0,115200n8 rdinit=/bin/sh' -serial stdio -display none -monitor none -no-reboot <&3 > /tmp/console.log 2>&1 &
           qemu_pid=$!
           ready=0
           for _ in $(seq 1 60); do
@@ -159,13 +225,16 @@ jobs:
           printf 'mount -t devtmpfs devtmpfs /dev\n' >&3
           printf 'modprobe virtio_pci\n' >&3
           printf 'modprobe virtio_blk\n' >&3
+          printf 'modprobe virtio_net\n' >&3
           printf 'modprobe ext4\n' >&3
+          printf 'ip link set eth0 up\n' >&3
+          printf 'udhcpc -i eth0 -q -n\n' >&3
           printf 'mkdir -p /state\n' >&3
           printf 'mount -t ext4 /dev/vda /state\n' >&3
           printf 'chroot /state /root/.sxwik-init.sh\n' >&3
           exec 3>&-
           done=0
-          for _ in $(seq 1 90); do
+          for _ in $(seq 1 150); do
             if grep -q '^SXWIK_DONE:' /tmp/console.log 2>/dev/null; then done=1; break; fi
             if ! kill -0 "$qemu_pid" 2>/dev/null; then break; fi
             sleep 1
@@ -180,29 +249,62 @@ jobs:
           kill "$qemu_pid" 2>/dev/null || true
           wait "$qemu_pid" 2>/dev/null || true
           test -s /tmp/console.log
-          tail -n 120 /tmp/console.log | tr -d '\r' > /tmp/console.tail
+          tail -n 140 /tmp/console.log | tr -d '\r' > /tmp/console.tail
           cat /tmp/console.tail
           if ! tr -d '\r' < /tmp/console.log | grep -q '^SXWIK_DONE:0$'; then
             echo 'guest command failed' >&2
             exit 1
           fi
 
-      - name: Render terminal screen
-        shell: python
+      - name: Extract guest Doom screenshot
+        if: ${{ startsWith(steps.command.outputs.command, 'doom ') || steps.command.outputs.command == 'doom' || startsWith(steps.command.outputs.command, 'DOOM ') || steps.command.outputs.command == 'DOOM' }}
+        shell: bash
         run: |
+          mkdir -p /mnt/sxwik-linux
+          sudo mount -o loop,ro "$STATE" /mnt/sxwik-linux
+          if [ -f /mnt/sxwik-linux/root/doom.png ]; then
+            sudo cp /mnt/sxwik-linux/root/doom.png /tmp/doom.png
+          fi
+          sudo umount /mnt/sxwik-linux
+          test -s /tmp/doom.png
+
+      - name: Render screen
+        shell: bash
+        run: |
+          mkdir -p linux
+          if [ -s /tmp/doom.png ]; then
+            base64 -w0 /tmp/doom.png > /tmp/doom.b64
+            cat > linux/screen.svg <<'SVGEOF'
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 760" width="1280" height="760">
+            <rect width="1280" height="760" rx="18" fill="#050607"/>
+            <image x="0" y="40" width="1280" height="720" preserveAspectRatio="none" href="data:image/png;base64,SVGEOF
+            cat /tmp/doom.b64 >> linux/screen.svg
+            cat >> linux/screen.svg <<'SVGEOF'
+          "/>
+            <text x="640" y="26" text-anchor="middle" font-family="monospace" font-size="12" fill="#9aa2ad" letter-spacing="2">SXWIK LINUX :: DOOM INSIDE ALPINE</text>
+          </svg>
+          SVGEOF
+          else
+            python - <<'PY'
           import html
           from pathlib import Path
           text = Path('/tmp/console.tail').read_text(errors='replace')
           text = ''.join(c if c in '\n\t' or ord(c) >= 32 else ' ' for c in text)
-          lines = [line[:118] for line in text.splitlines()[-38:]]
-          height = max(24, len(lines) + 4)
+          lines = [line[:118] for line in text.splitlines()[-42:]]
           rows = '\n'.join(f'<text x="28" y="{82 + i*20}" class="t">{html.escape(line, quote=False)}</text>' for i, line in enumerate(lines))
+          height = max(24, len(lines) + 4)
           svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 {height*20+60}" width="1240" height="{height*20+60}"><rect width="100%" height="100%" rx="18" fill="#050607"/><rect x="1" y="1" width="1238" height="{height*20+58}" rx="17" fill="none" stroke="#30343a"/><rect x="0" y="0" width="1240" height="38" rx="18" fill="#0d0f12"/><circle cx="20" cy="19" r="6" fill="#ff5f57"/><circle cx="40" cy="19" r="6" fill="#febc2e"/><circle cx="60" cy="19" r="6" fill="#28c840"/><text x="620" y="24" text-anchor="middle" class="title">SXWIK LINUX :: ttyS0</text><text x="28" y="58" class="meta">ALPINE 3.24.1 · x86_64 · 512 MiB · QEMU · SHARED STATE</text>{rows}<style>.t{{font:14px monospace;fill:#d7dbe0;white-space:pre}}.meta{{font:11px monospace;fill:#7f8792}}.title{{font:11px monospace;fill:#9aa2ad;letter-spacing:2px}}</style></svg>'''
           Path('linux/screen.svg').write_text(svg)
-          Path('linux').mkdir(exist_ok=True)
+          PY
+          fi
 
       - name: Convert terminal screen to PNG
+        if: ${{ !startsWith(steps.command.outputs.command, 'doom ') && steps.command.outputs.command != 'doom' && !startsWith(steps.command.outputs.command, 'DOOM ') && steps.command.outputs.command != 'DOOM' }}
         run: rsvg-convert -w 1240 -o linux/screen.png linux/screen.svg
+
+      - name: Use Doom screenshot as profile PNG
+        if: ${{ startsWith(steps.command.outputs.command, 'doom ') || steps.command.outputs.command == 'doom' || startsWith(steps.command.outputs.command, 'DOOM ') || steps.command.outputs.command == 'DOOM' }}
+        run: cp /tmp/doom.png linux/screen.png
 
       - name: Update profile screen and journal
         shell: bash
@@ -251,4 +353,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ISSUE: ${{ inputs.issue }}
           CMD: ${{ steps.command.outputs.command }}
-        run: gh issue comment "$ISSUE" --body "\`$CMD\` executed in the shared Linux guest. The profile terminal is updating from the same VM state."
+        run: gh issue comment "$ISSUE" --body "\`$CMD\` executed inside the shared Alpine Linux guest. Doom, when requested, runs inside that same guest and is closed before the VM syncs."
