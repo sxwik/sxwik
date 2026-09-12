@@ -113,9 +113,19 @@ jobs:
         shell: bash
         run: |
           sleep 0.25
+          mkdir -p linux
           import -display "$DISPLAY" -window root -crop 1280x720+0+0 -quality 92 linux/screen.png
           test -s linux/screen.png
           file linux/screen.png
+
+      - name: Build GitHub-safe SVG preview
+        shell: python
+        run: |
+          import base64
+          from pathlib import Path
+          data = base64.b64encode(Path('linux/screen.png').read_bytes()).decode('ascii')
+          svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720"><image width="1280" height="720" href="data:image/png;base64,{data}"/></svg>'''
+          Path('linux/screen.svg').write_text(svg)
 
       - name: Stop Doom
         if: always()
@@ -137,16 +147,16 @@ jobs:
           import os
           p = Path('README.md')
           s = p.read_text()
-          start = '<img src="./linux/screen.png'
+          start = '<img src="./linux/screen.svg'
           a = s.find(start)
           if a >= 0:
               b = s.find('>', a)
-              s = s[:a] + '<img src="./linux/screen.png?v=' + os.environ['GITHUB_RUN_ID'] + '" width="100%" alt="SXWIK Linux / DOOM">' + s[b+1:]
+              s = s[:a] + '<img src="./linux/screen.svg?v=' + os.environ['GITHUB_RUN_ID'] + '" width="100%" alt="SXWIK Linux / DOOM">' + s[b+1:]
           p.write_text(s)
           PY
           git config user.name 'sxwik-linux[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add README.md linux/screen.png linux/history.log
+          git add README.md linux/screen.svg linux/screen.png linux/history.log
           git diff --cached --quiet || git commit -m "doom: execute input program"
           git push
 
