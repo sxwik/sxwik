@@ -17,7 +17,7 @@ jobs:
       (github.event.comment.body == 'doom stop' || github.event.comment.body == 'doom-stop')
     runs-on: ubuntu-latest
     steps:
-      - name: Cancel active guest and Doom router runs
+      - name: Cancel active guest and Doom runs
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -25,7 +25,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for workflow in linux-console.yml doom.yml; do
+          for workflow in linux-console-fixed.yml linux-console.yml doom.yml; do
             runs=$(gh run list --repo "$REPO" --workflow "$workflow" --status in_progress --json databaseId --jq '.[].databaseId')
             if [ -z "$runs" ]; then
               echo "No active $workflow run."
