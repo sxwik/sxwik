@@ -53,7 +53,7 @@ jobs:
       - name: Install VM tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq qemu-system-x86 qemu-utils e2fsprogs curl unzip jq squashfs-tools cpio gzip librsvg2-bin
+          sudo apt-get install -y -qq qemu-system-x86 qemu-utils e2fsprogs curl unzip jq librsvg2-bin
 
       - name: Restore persistent disk
         env:
@@ -67,8 +67,6 @@ jobs:
             unzip -o /tmp/state.zip -d /tmp/state >/dev/null
             cp /tmp/state/linux-state.img "$STATE"
           else
-            # Edge packages used by Doom are newer than the stable release, so the
-            # first-ever disk is seeded from the current edge minirootfs snapshot.
             curl -fsSL "$VIRT_NETBOOT/../../../releases/x86_64/alpine-minirootfs-20260805-x86_64.tar.gz" -o /tmp/alpine.tar.gz
             qemu-img create -f raw "$STATE" 512M >/dev/null
             mkfs.ext4 -q "$STATE"
@@ -108,9 +106,6 @@ jobs:
 
           if [ "$is_doom" -eq 1 ]; then
             echo 'SXWIK LINUX :: Doom is running INSIDE Alpine'
-
-            # Chocolate Doom is in Alpine edge/testing and Freedoom is in
-            # edge/community. Keep the guest on one coherent edge repository set.
             if ! command -v chocolate-doom >/dev/null 2>&1; then
               echo 'Installing Doom stack in Alpine (first run only)...'
               cat > /etc/apk/repositories <<'REPOS'
@@ -118,40 +113,17 @@ jobs:
           https://dl-cdn.alpinelinux.org/alpine/edge/community
           https://dl-cdn.alpinelinux.org/alpine/edge/testing
           REPOS
-
-              echo 'Refreshing Alpine package indexes...'
-              if ! apk update; then
-                echo 'ERROR: Alpine package index refresh failed.' >&2
-                echo 'Network diagnostics:' >&2
-                cat /etc/resolv.conf >&2 2>/dev/null || true
-                ip addr >&2 2>/dev/null || true
-                ip route >&2 2>/dev/null || true
-                exit 1
-              fi
-
-              echo 'Installing Doom dependencies...'
-              apk add --no-cache \
-                python3 \
-                chocolate-doom \
-                freedoom \
-                xvfb \
-                xdotool \
-                openbox \
-                imagemagick \
-                xkbcomp \
-                xkeyboard-config
+              apk update || { echo 'ERROR: Alpine package index refresh failed.' >&2; cat /etc/resolv.conf >&2 2>/dev/null || true; ip addr >&2 2>/dev/null || true; ip route >&2 2>/dev/null || true; exit 1; }
+              apk add --no-cache python3 chocolate-doom freedoom xvfb xdotool openbox imagemagick xkbcomp xkeyboard-config
             fi
-
-            command -v chocolate-doom >/dev/null 2>&1 || { echo 'chocolate-doom is still missing' >&2; exit 1; }
-            command -v Xvfb >/dev/null 2>&1 || { echo 'Xvfb is still missing' >&2; exit 1; }
-            command -v xdotool >/dev/null 2>&1 || { echo 'xdotool is still missing' >&2; exit 1; }
-            command -v import >/dev/null 2>&1 || { echo 'ImageMagick import is still missing' >&2; exit 1; }
+            command -v chocolate-doom >/dev/null 2>&1 || { echo 'chocolate-doom missing' >&2; exit 1; }
+            command -v Xvfb >/dev/null 2>&1 || { echo 'Xvfb missing' >&2; exit 1; }
+            command -v xdotool >/dev/null 2>&1 || { echo 'xdotool missing' >&2; exit 1; }
+            command -v import >/dev/null 2>&1 || { echo 'ImageMagick import missing' >&2; exit 1; }
 
             export DISPLAY=:99
-            rm -f /root/doom.png
-            rm -f /tmp/.X99-lock
+            rm -f /root/doom.png /root/doom-quit /tmp/.X99-lock
             rm -rf /tmp/.X11-unix/X99
-
             Xvfb :99 -screen 0 1280x720x24 -ac -nolisten tcp >/tmp/xvfb.log 2>&1 &
             xvfb_pid=$!
             sleep 1
@@ -160,49 +132,32 @@ jobs:
               xvfb_pid=$!
               sleep 1
             fi
-            if ! kill -0 "$xvfb_pid" 2>/dev/null; then
-              echo 'Xvfb failed to start' >&2
-              cat /tmp/xvfb.log >&2 || true
-              exit 1
-            fi
-
+            kill -0 "$xvfb_pid" 2>/dev/null || { cat /tmp/xvfb.log >&2 || true; exit 1; }
             openbox >/tmp/openbox.log 2>&1 &
             openbox_pid=$!
             sleep 0.5
 
             IWAD="$(find /usr/share /usr/local/share -type f -name 'freedoom1.wad' 2>/dev/null | head -n 1)"
-            if [ -z "$IWAD" ]; then
-              echo 'Freedoom IWAD not found' >&2
-              find /usr/share /usr/local/share -type f -iname '*freedoom*' 2>/dev/null | head -n 40 || true
-              kill "$openbox_pid" "$xvfb_pid" 2>/dev/null || true
-              exit 1
-            fi
-
+            [ -n "$IWAD" ] || { echo 'Freedoom IWAD not found' >&2; find /usr/share /usr/local/share -type f -iname '*freedoom*' 2>/dev/null | head -n 40 || true; kill "$openbox_pid" "$xvfb_pid" 2>/dev/null || true; exit 1; }
             mkdir -p /root/.doom-saves
-            chocolate-doom \
-              -iwad "$IWAD" \
-              -window \
-              -width 1280 \
-              -height 720 \
-              -nograbmouse \
-              -nomusic \
-              -nosfx \
-              -savedir /root/.doom-saves \
-              >/tmp/chocolate-doom.log 2>&1 &
+            chocolate-doom -iwad "$IWAD" -window -width 1280 -height 720 -nograbmouse -nomusic -nosfx -savedir /root/.doom-saves >/tmp/chocolate-doom.log 2>&1 &
             doom_pid=$!
 
             export DOOM_WINDOW=''
             python3 /root/doom-input.py "$CMD"
             input_rc=$?
             sleep 0.35
-
-            import -display "$DISPLAY" -window root -crop 1280x720+0+0 -quality 92 /root/doom.png
+            if printf '%s\n' "$CMD" | grep -Eiq '^doom[[:space:]]+(quit|exit)([[:space:]]|$)'; then
+              touch /root/doom-quit
+              echo 'SXWIK DOOM :: normal quit requested'
+            else
+              import -display "$DISPLAY" -window root -crop 1280x720+0+0 -quality 92 /root/doom.png
+            fi
             kill "$doom_pid" 2>/dev/null || true
             kill "$openbox_pid" "$xvfb_pid" 2>/dev/null || true
             wait "$doom_pid" 2>/dev/null || true
             echo 'SXWIK DOOM :: closed, returning to Alpine shell'
             echo "SXWIK_DOOM_RC:$input_rc"
-            sync
             rc="$input_rc"
           else
             sh -c "$CMD"
@@ -221,36 +176,12 @@ jobs:
           sudo umount /mnt/sxwik-linux
           sudo e2fsck -fy "$STATE" >/dev/null
 
-      - name: Download matching Alpine kernel, initramfs, and modloop
+      - name: Download matching Alpine kernel and initramfs
         run: |
           curl -fsSL "$VIRT_NETBOOT/vmlinuz-virt" -o /tmp/vmlinuz
           curl -fsSL "$VIRT_NETBOOT/initramfs-virt" -o /tmp/initramfs
-          curl -fsSL "$VIRT_NETBOOT/modloop-virt" -o /tmp/modloop-virt
-
-      - name: Build minimal initramfs with required modules
-        shell: bash
-        run: |
-          rm -rf /tmp/initrd /tmp/modloop
-          mkdir -p /tmp/initrd /tmp/modloop
-          gzip -dc /tmp/initramfs | (cd /tmp/initrd && cpio -idm --no-absolute-filenames)
-          unsquashfs -f -d /tmp/modloop /tmp/modloop-virt >/dev/null
-          moddir="$(find /tmp/modloop/modules -mindepth 1 -maxdepth 1 -type d -print -quit)"
-          test -n "$moddir" || { echo 'no kernel module directory found' >&2; find /tmp/modloop/modules -maxdepth 2 -type d >&2 || true; exit 1; }
-          test -f "$moddir/modules.dep"
-          KERNEL_VERSION="$(basename "$moddir")"
-          echo "Using Alpine kernel module set: $KERNEL_VERSION"
-          rm -rf /tmp/initrd/lib/modules
-          mkdir -p /tmp/initrd/lib/modules
-          cp -a "$moddir" /tmp/initrd/lib/modules/
-          for applet in mkdir mount sh cat uname sync chroot ip ifconfig udhcpc route; do
-            ln -sf /bin/busybox "/tmp/initrd/bin/$applet"
-          done
-          mkdir -p /tmp/initrd/sbin
-          ln -sf /bin/busybox /tmp/initrd/sbin/reboot
-          echo "kernel modules copied: $(find "/tmp/initrd/lib/modules/$KERNEL_VERSION" -type f | wc -l)"
-          (cd /tmp/initrd && find . -print0 | cpio --null -o -H newc) | gzip -9 > /tmp/initramfs-custom
-          test -s /tmp/initramfs-custom
-          ls -lh /tmp/initramfs-custom
+          test -s /tmp/vmlinuz
+          test -s /tmp/initramfs
 
       - name: Boot Linux and execute command
         shell: bash
@@ -258,7 +189,12 @@ jobs:
           rm -f /tmp/qemu.in /tmp/console.log
           mkfifo /tmp/qemu.in
           exec 3<>/tmp/qemu.in
-          qemu-system-x86_64 -machine accel=tcg -cpu qemu64 -m "$RAM" -kernel /tmp/vmlinuz -initrd /tmp/initramfs-custom -drive file="$STATE",format=raw,if=virtio -netdev user,id=net0 -device virtio-net-pci,netdev=net0 -append 'console=ttyS0,115200n8 rdinit=/bin/sh' -serial stdio -display none -monitor none -no-reboot <&3 > /tmp/console.log 2>&1 &
+          qemu-system-x86_64 -machine accel=tcg -cpu qemu64 -m "$RAM" \
+            -kernel /tmp/vmlinuz -initrd /tmp/initramfs \
+            -drive file="$STATE",format=raw,if=virtio \
+            -netdev user,id=net0 -device virtio-net-pci,netdev=net0 \
+            -append 'console=ttyS0,115200n8 rdinit=/bin/sh modules=virtio_pci,virtio_blk,virtio_net,ext4' \
+            -serial stdio -display none -monitor none -no-reboot <&3 > /tmp/console.log 2>&1 &
           qemu_pid=$!
           ready=0
           for _ in $(seq 1 60); do
@@ -268,10 +204,10 @@ jobs:
           done
           if [ "$ready" -ne 1 ]; then cat /tmp/console.log 2>/dev/null || true; kill "$qemu_pid" 2>/dev/null || true; exec 3>&-; wait "$qemu_pid" 2>/dev/null || true; exit 1; fi
           printf 'mount -t devtmpfs devtmpfs /dev\n' >&3
-          printf 'modprobe virtio_pci\n' >&3
-          printf 'modprobe virtio_blk\n' >&3
-          printf 'modprobe virtio_net\n' >&3
-          printf 'modprobe ext4\n' >&3
+          printf 'modprobe virtio_pci 2>/dev/null || true\n' >&3
+          printf 'modprobe virtio_blk 2>/dev/null || true\n' >&3
+          printf 'modprobe virtio_net 2>/dev/null || true\n' >&3
+          printf 'modprobe ext4 2>/dev/null || true\n' >&3
           printf 'ip link set eth0 up\n' >&3
           printf 'udhcpc -i eth0 -q -n\n' >&3
           printf 'mkdir -p /state\n' >&3
@@ -287,22 +223,13 @@ jobs:
             if ! kill -0 "$qemu_pid" 2>/dev/null; then break; fi
             sleep 1
           done
-          if [ "$done" -ne 1 ]; then
-            cat /tmp/console.log 2>/dev/null || true
-            kill "$qemu_pid" 2>/dev/null || true
-            wait "$qemu_pid" 2>/dev/null || true
-            echo 'guest did not report completion' >&2
-            exit 1
-          fi
+          if [ "$done" -ne 1 ]; then cat /tmp/console.log 2>/dev/null || true; kill "$qemu_pid" 2>/dev/null || true; wait "$qemu_pid" 2>/dev/null || true; echo 'guest did not report completion' >&2; exit 1; fi
           kill "$qemu_pid" 2>/dev/null || true
           wait "$qemu_pid" 2>/dev/null || true
           test -s /tmp/console.log
           tail -n 140 /tmp/console.log | tr -d '\r' > /tmp/console.tail
           cat /tmp/console.tail
-          if ! tr -d '\r' < /tmp/console.log | grep -q '^SXWIK_DONE:0$'; then
-            echo 'guest command failed' >&2
-            exit 1
-          fi
+          tr -d '\r' < /tmp/console.log | grep -q '^SXWIK_DONE:0$' || { echo 'guest command failed' >&2; exit 1; }
 
       - name: Extract guest Doom screenshot
         if: ${{ startsWith(steps.command.outputs.command, 'doom ') || steps.command.outputs.command == 'doom' || startsWith(steps.command.outputs.command, 'DOOM ') || steps.command.outputs.command == 'DOOM' }}
@@ -310,11 +237,8 @@ jobs:
         run: |
           mkdir -p /mnt/sxwik-linux
           sudo mount -o loop,ro "$STATE" /mnt/sxwik-linux
-          if [ -f /mnt/sxwik-linux/root/doom.png ]; then
-            sudo cp /mnt/sxwik-linux/root/doom.png /tmp/doom.png
-          fi
+          if [ -f /mnt/sxwik-linux/root/doom.png ]; then sudo cp /mnt/sxwik-linux/root/doom.png /tmp/doom.png; fi
           sudo umount /mnt/sxwik-linux
-          test -s /tmp/doom.png
 
       - name: Render screen
         shell: bash
@@ -332,27 +256,20 @@ jobs:
             <text x="640" y="26" text-anchor="middle" font-family="monospace" font-size="12" fill="#9aa2ad" letter-spacing="2">SXWIK LINUX :: DOOM INSIDE ALPINE</text>
           </svg>
           SVGEOF
+            cp /tmp/doom.png linux/screen.png
           else
             python - <<'PY'
           import html
           from pathlib import Path
-          text = Path('/tmp/console.tail').read_text(errors='replace')
-          text = ''.join(c if c in '\n\t' or ord(c) >= 32 else ' ' for c in text)
-          lines = [line[:118] for line in text.splitlines()[-42:]]
-          rows = '\n'.join(f'<text x="28" y="{82 + i*20}" class="t">{html.escape(line, quote=False)}</text>' for i, line in enumerate(lines))
-          height = max(24, len(lines) + 4)
-          svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 {height*20+60}" width="1240" height="{height*20+60}"><rect width="100%" height="100%" rx="18" fill="#050607"/><rect x="1" y="1" width="1238" height="{height*20+58}" rx="17" fill="none" stroke="#30343a"/><rect x="0" y="0" width="1240" height="38" rx="18" fill="#0d0f12"/><circle cx="20" cy="19" r="6" fill="#ff5f57"/><circle cx="40" cy="19" r="6" fill="#febc2e"/><circle cx="60" cy="19" r="6" fill="#28c840"/><text x="620" y="24" text-anchor="middle" class="title">SXWIK LINUX :: ttyS0</text><text x="28" y="58" class="meta">ALPINE EDGE · x86_64 · 512 MiB · QEMU · SHARED STATE</text>{rows}<style>.t{{font:14px monospace;fill:#d7dbe0;white-space:pre}}.meta{{font:11px monospace;fill:#7f8792}}.title{{font:11px monospace;fill:#9aa2ad;letter-spacing:2px}}</style></svg>'''
-          Path('linux/screen.svg').write_text(svg)
+          text=Path('/tmp/console.tail').read_text(errors='replace')
+          text=''.join(c if c in '\n\t' or ord(c)>=32 else ' ' for c in text)
+          lines=[x[:118] for x in text.splitlines()[-42:]]
+          rows='\n'.join(f'<text x="28" y="{82+i*20}" class="t">{html.escape(x,quote=False)}</text>' for i,x in enumerate(lines))
+          h=max(24,len(lines)+4)
+          Path('linux/screen.svg').write_text(f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 {h*20+60}" width="1240" height="{h*20+60}"><rect width="100%" height="100%" rx="18" fill="#050607"/><rect x="0" y="0" width="1240" height="38" rx="18" fill="#0d0f12"/><text x="620" y="24" text-anchor="middle" class="title">SXWIK LINUX :: ttyS0</text><text x="28" y="58" class="meta">ALPINE EDGE · x86_64 · 512 MiB · QEMU · SHARED STATE</text>{rows}<style>.t{{font:14px monospace;fill:#d7dbe0;white-space:pre}}.meta{{font:11px monospace;fill:#7f8792}}.title{{font:11px monospace;fill:#9aa2ad;letter-spacing:2px}}</style></svg>''')
           PY
+            rsvg-convert -w 1240 -o linux/screen.png linux/screen.svg
           fi
-
-      - name: Convert terminal screen to PNG
-        if: ${{ !startsWith(steps.command.outputs.command, 'doom ') && steps.command.outputs.command != 'doom' && !startsWith(steps.command.outputs.command, 'DOOM ') && steps.command.outputs.command != 'DOOM' }}
-        run: rsvg-convert -w 1240 -o linux/screen.png linux/screen.svg
-
-      - name: Use Doom screenshot as profile PNG
-        if: ${{ startsWith(steps.command.outputs.command, 'doom ') || steps.command.outputs.command == 'doom' || startsWith(steps.command.outputs.command, 'DOOM ') || steps.command.outputs.command == 'DOOM' }}
-        run: cp /tmp/doom.png linux/screen.png
 
       - name: Update profile screen and journal
         shell: bash
@@ -365,13 +282,13 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import os
-          p = Path('README.md')
-          s = p.read_text()
-          start = '<img src="./linux/screen.png'
-          a = s.find(start)
-          if a >= 0:
-              b = s.find('>', a)
-              s = s[:a] + '<img src="./linux/screen.png?v=' + os.environ['GITHUB_RUN_ID'] + '" width="100%" alt="SXWIK Linux / DOOM">' + s[b+1:]
+          p=Path('README.md')
+          s=p.read_text()
+          start='<img src="./linux/screen.png'
+          a=s.find(start)
+          if a>=0:
+              b=s.find('>',a)
+              s=s[:a]+'<img src="./linux/screen.png?v='+os.environ['GITHUB_RUN_ID']+'" width="100%" alt="SXWIK Linux / DOOM">'+s[b+1:]
           p.write_text(s)
           PY
           git config user.name 'sxwik-linux[bot]'
