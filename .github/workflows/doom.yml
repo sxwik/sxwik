@@ -79,27 +79,52 @@ jobs:
         run: |
           rm -f /tmp/.X99-lock
           rm -rf /tmp/.X11-unix/X99
-          Xvfb "$DISPLAY" \
-            -screen 0 1280x720x24 \
-            -ac \
-            -nolisten tcp \
-            -xkbdir /usr/share/X11/xkb \
-            >/tmp/xvfb.log 2>&1 &
-          XVFB_PID=$!
-          echo "$XVFB_PID" >/tmp/xvfb.pid
 
-          for _ in $(seq 1 40); do
-            if xdpyinfo -display "$DISPLAY" >/dev/null 2>&1; then
-              echo "Xvfb is ready on $DISPLAY"
-              exit 0
-            fi
-            if ! kill -0 "$XVFB_PID" 2>/dev/null; then
-              echo 'Xvfb exited before the display became ready' >&2
-              cat /tmp/xvfb.log >&2 || true
-              exit 1
-            fi
-            sleep 0.25
-          done
+          start_xvfb() {
+            local extra="$1"
+            Xvfb "$DISPLAY" \
+              -screen 0 1280x720x24 \
+              -ac \
+              -nolisten tcp \
+              -xkbdir /usr/share/X11/xkb \
+              $extra \
+              >/tmp/xvfb.log 2>&1 &
+            XVFB_PID=$!
+            echo "$XVFB_PID" >/tmp/xvfb.pid
+          }
+
+          wait_for_x() {
+            for _ in $(seq 1 40); do
+              if xdpyinfo -display "$DISPLAY" >/dev/null 2>&1; then
+                return 0
+              fi
+              if ! kill -0 "$XVFB_PID" 2>/dev/null; then
+                return 1
+              fi
+              sleep 0.25
+            done
+            return 1
+          }
+
+          # First try normal XKB because xdotool uses the X keyboard mapping.
+          start_xvfb ""
+          if wait_for_x; then
+            echo "Xvfb is ready on $DISPLAY with XKB"
+            exit 0
+          fi
+
+          echo 'Normal XKB startup failed; retrying Xvfb with XKEYBOARD disabled.' >&2
+          cat /tmp/xvfb.log >&2 || true
+          kill "$XVFB_PID" 2>/dev/null || true
+          sleep 0.5
+          rm -f /tmp/.X99-lock
+          rm -rf /tmp/.X11-unix/X99
+
+          start_xvfb "-kb"
+          if wait_for_x; then
+            echo "Xvfb is ready on $DISPLAY with -kb fallback"
+            exit 0
+          fi
 
           echo 'Xvfb did not become ready' >&2
           cat /tmp/xvfb.log >&2 || true
@@ -142,8 +167,7 @@ jobs:
           [ -n "$WINDOW" ] || { echo 'Chocolate Doom window was not found' >&2; cat /tmp/chocolate-doom.log >&2 || true; exit 1; }
           xdotool windowactivate --sync "$WINDOW"
           sleep 1
-
-          echo 'Doom is booted; capturing the initial title screen.'
+          echo 'Doom is booted; the title screen should now be visible.'
 
       - name: Execute stacked Doom inputs
         env:
