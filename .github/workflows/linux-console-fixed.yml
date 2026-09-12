@@ -180,10 +180,10 @@ jobs:
             -m "$RAM" \
             -kernel /tmp/vmlinuz \
             -initrd /tmp/initramfs \
-            -drive file="$STATE",format=raw,if=virtio \
+            -drive file="$STATE",format=raw,if=ide \
             -netdev user,id=net0 \
             -device virtio-net-pci,netdev=net0 \
-            -append "console=ttyS0,115200n8 root=LABEL=SXWIK rootfstype=ext4 rootflags=rw ip=dhcp modules=virtio_pci,virtio_blk,ext4 init=/root/.sxwik-init.sh" \
+            -append "console=ttyS0,115200n8 root=/dev/sda rootfstype=ext4 rootflags=rw ip=dhcp modules=ata,ide,ext4 init=/root/.sxwik-init.sh" \
             -serial stdio -display none -monitor none -no-reboot > /tmp/console.log 2>&1 &
           qemu_pid=$!
           done=0
