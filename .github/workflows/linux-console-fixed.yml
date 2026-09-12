@@ -24,7 +24,7 @@ concurrency:
 env:
   STATE: linux-state.img
   RAM: 512M
-  NETBOOT: https://dl-cdn.alpinelinux.org/alpine/edge/releases/x86_64/netboot
+  NETBOOT: https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/x86_64/netboot-3.24.1
 
 jobs:
   run:
@@ -67,7 +67,7 @@ jobs:
             unzip -o /tmp/state.zip -d /tmp/state >/dev/null
             cp /tmp/state/linux-state.img "$STATE"
           else
-            curl -fsSL "https://dl-cdn.alpinelinux.org/alpine/latest-stable/releases/x86_64/alpine-minirootfs-3.24.1-x86_64.tar.gz" -o /tmp/alpine.tar.gz
+            curl -fsSL "https://dl-cdn.alpinelinux.org/alpine/v3.24/releases/x86_64/alpine-minirootfs-3.24.1-x86_64.tar.gz" -o /tmp/alpine.tar.gz
             qemu-img create -f raw "$STATE" 512M >/dev/null
             mkfs.ext4 -q "$STATE"
             sudo mkdir -p /mnt/sxwik-linux
@@ -189,7 +189,7 @@ jobs:
             -drive file="$STATE",format=raw,if=virtio \
             -netdev user,id=net0 \
             -device virtio-net-pci,netdev=net0 \
-            -append "console=ttyS0,115200n8 root=UUID=$ROOT_UUID rootfstype=ext4 rootflags=rw ip=dhcp modules=virtio_pci,virtio_blk,virtio_net,ext4 init=/root/.sxwik-init.sh" \
+            -append "console=ttyS0,115200n8 root=UUID=$ROOT_UUID rootfstype=ext4 rootflags=rw ip=dhcp modules=virtio_pci,virtio_blk,ext4 init=/root/.sxwik-init.sh" \
             -serial stdio -display none -monitor none -no-reboot > /tmp/console.log 2>&1 &
           qemu_pid=$!
           done=0
