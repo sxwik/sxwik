@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       command:
-        description: Guest shell command
+        description: Guest shell command (or doom input program)
         required: true
         type: string
   issue_comment:
@@ -29,10 +29,12 @@ env:
 jobs:
   run:
     if: >-
-      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issue_comment' && github.event.issue.pull_request == null &&
        (github.event.issue.title == '🖥️ SXWIK LINUX CONSOLE' || github.event.issue.title == 'SXWIK LINUX CONSOLE') &&
-       github.event.comment.user.type != 'Bot')
+       github.event.comment.user.type != 'Bot' &&
+       github.event.comment.body != 'doom' &&
+       !startsWith(github.event.comment.body, 'doom ')))
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -58,7 +60,7 @@ jobs:
       - name: Install VM tools
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq qemu-system-x86 qemu-utils e2fsprogs curl unzip jq squashfs-tools cpio gzip
+          sudo apt-get install -y -qq qemu-system-x86 qemu-utils e2fsprogs curl unzip jq squashfs-tools cpio gzip librsvg2-bin
 
       - name: Restore persistent disk
         env:
@@ -199,6 +201,11 @@ jobs:
           rows = '\n'.join(f'<text x="28" y="{82 + i*20}" class="t">{html.escape(line, quote=False)}</text>' for i, line in enumerate(lines))
           svg = f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 {height*20+60}" width="1240" height="{height*20+60}"><rect width="100%" height="100%" rx="18" fill="#050607"/><rect x="1" y="1" width="1238" height="{height*20+58}" rx="17" fill="none" stroke="#30343a"/><rect x="0" y="0" width="1240" height="38" rx="18" fill="#0d0f12"/><circle cx="20" cy="19" r="6" fill="#ff5f57"/><circle cx="40" cy="19" r="6" fill="#febc2e"/><circle cx="60" cy="19" r="6" fill="#28c840"/><text x="620" y="24" text-anchor="middle" class="title">SXWIK LINUX :: ttyS0</text><text x="28" y="58" class="meta">ALPINE 3.24.1 · x86_64 · 512 MiB · QEMU · SHARED STATE</text>{rows}<style>.t{{font:14px monospace;fill:#d7dbe0;white-space:pre}}.meta{{font:11px monospace;fill:#7f8792}}.title{{font:11px monospace;fill:#9aa2ad;letter-spacing:2px}}</style></svg>'''
           Path('linux/screen.svg').write_text(svg)
+          Path('linux').mkdir(exist_ok=True)
+          raise SystemExit(0)
+
+      - name: Convert terminal screen to PNG
+        run: rsvg-convert -w 1240 -o linux/screen.png linux/screen.svg
 
       - name: Update profile screen and journal
         shell: bash
@@ -213,16 +220,16 @@ jobs:
           import os
           p = Path('README.md')
           s = p.read_text()
-          start = '<img src="./linux/screen.svg'
+          start = '<img src="./linux/screen.png'
           a = s.find(start)
           if a >= 0:
               b = s.find('>', a)
-              s = s[:a] + '<img src="./linux/screen.svg?v=' + os.environ['GITHUB_RUN_ID'] + '" width="100%" alt="SXWIK Linux">' + s[b+1:]
+              s = s[:a] + '<img src="./linux/screen.png?v=' + os.environ['GITHUB_RUN_ID'] + '" width="100%" alt="SXWIK Linux / DOOM">' + s[b+1:]
           p.write_text(s)
           PY
           git config user.name 'sxwik-linux[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add README.md linux/screen.svg linux/history.log
+          git add README.md linux/screen.svg linux/screen.png linux/history.log
           git diff --cached --quiet || git commit -m "linux: execute $CMD"
           git push
 
