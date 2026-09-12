@@ -1,0 +1,297 @@
+name: SXWIK Linux Console Fixed
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: Guest shell command
+        required: true
+        type: string
+      issue:
+        description: Issue number to report back to
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  issues: write
+  actions: write
+
+concurrency:
+  group: sxwik-linux-console
+  cancel-in-progress: true
+
+env:
+  STATE: linux-state.img
+  RAM: 512M
+  NETBOOT: https://dl-cdn.alpinelinux.org/alpine/edge/releases/x86_64/netboot
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve command
+        id: command
+        shell: bash
+        env:
+          INPUT_COMMAND: ${{ inputs.command }}
+        run: |
+          cmd="${INPUT_COMMAND//$'\r'/}"
+          while [[ "$cmd" == *$'\n' ]]; do cmd="${cmd%$'\n'}"; done
+          [[ "$cmd" != *$'\n'* ]] || { echo 'multiline commands are disabled' >&2; exit 1; }
+          [ -n "${cmd//[[:space:]]/}" ] || { echo 'empty command' >&2; exit 1; }
+          [ ${#cmd} -le 240 ] || { echo 'command too long' >&2; exit 1; }
+          printf '%s' "$cmd" > /tmp/command.txt
+          echo "command=$cmd" >> "$GITHUB_OUTPUT"
+
+      - name: Install VM tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 qemu-utils e2fsprogs util-linux curl unzip jq
+
+      - name: Restore persistent disk
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          url=$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" \
+            --jq '.artifacts[] | select((.name | startswith("sxwik-linux-state-")) and .expired == false) | [.created_at,.archive_download_url] | @tsv' \
+            | sort -r | head -n 1 | cut -f2-)
+          if [ -n "$url" ]; then
+            mkdir -p /tmp/state
+            curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "$url" -o /tmp/state.zip
+            unzip -o /tmp/state.zip -d /tmp/state >/dev/null
+            cp /tmp/state/linux-state.img "$STATE"
+          else
+            curl -fsSL "https://dl-cdn.alpinelinux.org/alpine/latest-stable/releases/x86_64/alpine-minirootfs-3.24.1-x86_64.tar.gz" -o /tmp/alpine.tar.gz
+            qemu-img create -f raw "$STATE" 512M >/dev/null
+            mkfs.ext4 -q "$STATE"
+            sudo mkdir -p /mnt/sxwik-linux
+            sudo mount -o loop "$STATE" /mnt/sxwik-linux
+            sudo tar xpf /tmp/alpine.tar.gz -C /mnt/sxwik-linux
+            sudo umount /mnt/sxwik-linux
+          fi
+          if [ "$(stat -c '%s' "$STATE")" -lt $((512*1024*1024)) ]; then
+            qemu-img resize "$STATE" 512M >/dev/null
+            e2fsck -fy "$STATE" >/dev/null
+            resize2fs "$STATE" >/dev/null
+          fi
+          e2fsck -fy "$STATE" >/dev/null
+          tune2fs -L SXWIK "$STATE" >/dev/null
+          ROOT_UUID=$(blkid -s UUID -o value "$STATE")
+          [ -n "$ROOT_UUID" ] || { echo 'Could not read persistent ext4 UUID' >&2; exit 1; }
+          echo "ROOT_UUID=$ROOT_UUID" >> "$GITHUB_ENV"
+
+      - name: Prepare guest
+        shell: bash
+        run: |
+          sudo mkdir -p /mnt/sxwik-linux
+          sudo mount -o loop "$STATE" /mnt/sxwik-linux
+          sudo install -m 0644 /tmp/command.txt /mnt/sxwik-linux/root/.sxwik-command
+          sudo install -m 0755 scripts/doom-input.py /mnt/sxwik-linux/root/doom-input.py
+          sudo tee /mnt/sxwik-linux/root/.sxwik-init.sh >/dev/null <<'EOF'
+          #!/bin/sh
+          set -u
+          cd /root
+          CMD="$(cat /root/.sxwik-command)"
+          echo 'SXWIK LINUX :: shared Alpine guest'
+          uname -srmo
+          printf 'sxwik@linux:~$ %s\n' "$CMD"
+          rm -f /etc/resolv.conf
+          printf 'nameserver 10.0.2.3\n' > /etc/resolv.conf
+
+          is_doom=0
+          case "$CMD" in
+            [Dd][Oo][Oo][Mm]|[Dd][Oo][Oo][Mm]\ *) is_doom=1 ;;
+          esac
+
+          if [ "$is_doom" -eq 1 ]; then
+            echo 'SXWIK LINUX :: Doom is running INSIDE Alpine'
+            if ! command -v chocolate-doom >/dev/null 2>&1; then
+              cat > /etc/apk/repositories <<'REPOS'
+          https://dl-cdn.alpinelinux.org/alpine/edge/main
+          https://dl-cdn.alpinelinux.org/alpine/edge/community
+          https://dl-cdn.alpinelinux.org/alpine/edge/testing
+          REPOS
+              apk update || exit 1
+              apk add python3 chocolate-doom freedoom xvfb xdotool openbox imagemagick xkbcomp xkeyboard-config || exit 1
+            fi
+            export DISPLAY=:99
+            rm -f /root/doom.png /root/doom-quit /tmp/.X99-lock
+            rm -rf /tmp/.X11-unix/X99
+            Xvfb :99 -screen 0 1280x720x24 -ac -nolisten tcp >/tmp/xvfb.log 2>&1 &
+            xvfb_pid=$!
+            sleep 1
+            kill -0 "$xvfb_pid" 2>/dev/null || { cat /tmp/xvfb.log >&2; exit 1; }
+            openbox >/tmp/openbox.log 2>&1 &
+            openbox_pid=$!
+            sleep 0.5
+            IWAD="$(find /usr/share /usr/local/share -type f -name 'freedoom1.wad' 2>/dev/null | head -n 1)"
+            [ -n "$IWAD" ] || { echo 'Freedoom IWAD not found' >&2; exit 1; }
+            mkdir -p /root/.doom-saves
+            chocolate-doom -iwad "$IWAD" -window -width 1280 -height 720 -nograbmouse -nomusic -nosfx -savedir /root/.doom-saves >/tmp/chocolate-doom.log 2>&1 &
+            doom_pid=$!
+            python3 /root/doom-input.py "$CMD"
+            input_rc=$?
+            sleep 0.35
+            if printf '%s\n' "$CMD" | grep -Eiq '^doom[[:space:]]+(quit|exit)([[:space:]]|$)'; then
+              touch /root/doom-quit
+              echo 'SXWIK DOOM :: normal quit requested'
+            elif printf '%s\n' "$CMD" | grep -Eiq '^doom[[:space:]]+(!)?(kill|forcequit|force-kill)([[:space:]]|$)'; then
+              echo 'SXWIK DOOM :: force killed'
+            else
+              import -display "$DISPLAY" -window root -crop 1280x720+0+0 -quality 92 /root/doom.png
+            fi
+            kill "$doom_pid" 2>/dev/null || true
+            kill "$openbox_pid" "$xvfb_pid" 2>/dev/null || true
+            wait "$doom_pid" 2>/dev/null || true
+            echo 'SXWIK DOOM :: closed, returning to Alpine shell'
+            echo "SXWIK_DOOM_RC:$input_rc"
+            rc="$input_rc"
+          else
+            sh -c "$CMD"
+            rc=$?
+          fi
+
+          printf '\nSXWIK LINUX :: syncing\n'
+          sync
+          printf 'SXWIK_DONE:%s\n' "$rc"
+          sync
+          reboot -f
+          while :; do sleep 3600; done
+          EOF
+          sudo chmod 0755 /mnt/sxwik-linux/root/.sxwik-init.sh
+          sudo sync
+          sudo umount /mnt/sxwik-linux
+          sudo e2fsck -fy "$STATE" >/dev/null
+
+      - name: Download matching Alpine virt boot files
+        run: |
+          curl -fsSL "$NETBOOT/vmlinuz-virt" -o /tmp/vmlinuz
+          curl -fsSL "$NETBOOT/initramfs-virt" -o /tmp/initramfs
+          test -s /tmp/vmlinuz
+          test -s /tmp/initramfs
+
+      - name: Boot Linux and execute command
+        shell: bash
+        run: |
+          rm -f /tmp/console.log
+          qemu-system-x86_64 \
+            -machine accel=tcg \
+            -cpu qemu64 \
+            -m "$RAM" \
+            -kernel /tmp/vmlinuz \
+            -initrd /tmp/initramfs \
+            -drive file="$STATE",format=raw,if=virtio \
+            -netdev user,id=net0 \
+            -device virtio-net-pci,netdev=net0 \
+            -append "console=ttyS0,115200n8 root=UUID=$ROOT_UUID rootfstype=ext4 rootflags=rw ip=dhcp modules=virtio_pci,virtio_blk,virtio_net,ext4 init=/root/.sxwik-init.sh" \
+            -serial stdio -display none -monitor none -no-reboot > /tmp/console.log 2>&1 &
+          qemu_pid=$!
+          done=0
+          for _ in $(seq 1 180); do
+            grep -q '^SXWIK_DONE:' /tmp/console.log 2>/dev/null && { done=1; break; }
+            kill -0 "$qemu_pid" 2>/dev/null || break
+            sleep 1
+          done
+          if [ "$done" -ne 1 ]; then
+            cat /tmp/console.log 2>/dev/null || true
+            kill "$qemu_pid" 2>/dev/null || true
+            wait "$qemu_pid" 2>/dev/null || true
+            echo 'guest did not report completion' >&2
+            exit 1
+          fi
+          wait "$qemu_pid" 2>/dev/null || true
+          tr -d '\r' < /tmp/console.log | tail -n 180 | tee /tmp/console.tail
+          tr -d '\r' < /tmp/console.log | grep -q '^SXWIK_DONE:0$' || { echo 'guest command failed' >&2; exit 1; }
+
+      - name: Extract guest Doom screenshot
+        if: ${{ startsWith(steps.command.outputs.command, 'doom ') || steps.command.outputs.command == 'doom' || startsWith(steps.command.outputs.command, 'DOOM ') || steps.command.outputs.command == 'DOOM' }}
+        shell: bash
+        run: |
+          sudo mkdir -p /mnt/sxwik-linux
+          sudo mount -o loop,ro "$STATE" /mnt/sxwik-linux
+          [ -f /mnt/sxwik-linux/root/doom.png ] && sudo cp /mnt/sxwik-linux/root/doom.png /tmp/doom.png || true
+          sudo umount /mnt/sxwik-linux
+
+      - name: Render screen
+        shell: bash
+        run: |
+          mkdir -p linux
+          if [ -s /tmp/doom.png ]; then
+            base64 -w0 /tmp/doom.png > /tmp/doom.b64
+            cat > linux/screen.svg <<'SVG'
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 760" width="1280" height="760">
+          <rect width="1280" height="760" rx="18" fill="#050607"/>
+          <image x="0" y="40" width="1280" height="720" preserveAspectRatio="none" href="data:image/png;base64,
+          SVG
+            cat /tmp/doom.b64 >> linux/screen.svg
+            cat >> linux/screen.svg <<'SVG'
+          "/>
+          <text x="640" y="26" text-anchor="middle" font-family="monospace" font-size="12" fill="#9aa2ad" letter-spacing="2">SXWIK LINUX :: DOOM INSIDE ALPINE</text>
+          </svg>
+          SVG
+          else
+            python - <<'PY'
+          import html
+          from pathlib import Path
+          text=Path('/tmp/console.tail').read_text(errors='replace')
+          lines=[x[:118] for x in text.splitlines()[-42:]]
+          rows=''.join(f'<text x="28" y="{82+i*20}" class="t">{html.escape(x,quote=False)}</text>' for i,x in enumerate(lines))
+          h=max(24,len(lines)+4)
+          Path('linux/screen.svg').write_text(f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 {h*20+60}" width="1240" height="{h*20+60}"><rect width="100%" height="100%" rx="18" fill="#050607"/><text x="620" y="28" text-anchor="middle" class="title">SXWIK LINUX :: ttyS0</text>{rows}<style>.t{{font:14px monospace;fill:#d7dbe0}}.title{{font:11px monospace;fill:#9aa2ad;letter-spacing:2px}}</style></svg>')
+          PY
+          fi
+
+      - name: Update profile screen and journal
+        shell: bash
+        env:
+          CMD: ${{ steps.command.outputs.command }}
+        run: |
+          mkdir -p linux
+          touch linux/history.log
+          printf '%s\n' "$CMD" >> linux/history.log
+          python - <<'PY'
+          from pathlib import Path
+          import os
+          p=Path('README.md')
+          s=p.read_text()
+          a=s.find('<img src="./linux/screen.svg')
+          if a>=0:
+              b=s.find('>',a)
+              s=s[:a]+'<img src="./linux/screen.svg?v='+os.environ['GITHUB_RUN_ID']+'" width="100%" alt="SXWIK Linux / DOOM">'+s[b+1:]
+          p.write_text(s)
+          PY
+          git config user.name 'sxwik-linux[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add README.md linux/screen.svg linux/history.log
+          git diff --cached --quiet || git commit -m "linux: execute $CMD"
+          git push
+
+      - name: Persist VM disk
+        uses: actions/upload-artifact@v4
+        with:
+          name: sxwik-linux-state-${{ github.run_id }}
+          path: linux-state.img
+          retention-days: 90
+
+      - name: Remove older VM snapshots
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" --jq '.artifacts[] | select(.name | startswith("sxwik-linux-state-")) | [.id,.created_at] | @tsv' | sort -k2 -r | tail -n +4 | cut -f1 | while read -r id; do
+            [ -z "$id" ] || gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/$id" >/dev/null || true
+          done
+
+      - name: Comment result
+        if: ${{ inputs.issue != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE: ${{ inputs.issue }}
+          CMD: ${{ steps.command.outputs.command }}
+        run: gh issue comment "$ISSUE" --body "\`$CMD\` executed inside the persistent Alpine guest."
