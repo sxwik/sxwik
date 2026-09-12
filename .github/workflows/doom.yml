@@ -7,20 +7,23 @@ on:
         description: Doom input program
         required: true
         type: string
+      issue:
+        description: Issue number to report back to
+        required: false
+        type: string
   issue_comment:
     types: [created]
 
 permissions:
-  contents: write
-  issues: write
   actions: write
+  issues: write
 
 concurrency:
-  group: sxwik-doom
+  group: sxwik-doom-router
   cancel-in-progress: true
 
 jobs:
-  doom:
+  route:
     if: >-
       (github.event_name == 'workflow_dispatch' &&
        (github.event.inputs.command == 'doom' || startsWith(github.event.inputs.command, 'doom '))) ||
@@ -29,26 +32,10 @@ jobs:
        github.event.comment.user.type != 'Bot' &&
        (github.event.comment.body == 'doom' || startsWith(github.event.comment.body, 'doom ')))
     runs-on: ubuntu-latest
-    timeout-minutes: 8
-    env:
-      DISPLAY: ':99'
-      DOOM_COMMAND: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.command || github.event.comment.body }}
-      SDL_VIDEODRIVER: x11
-      SDL_AUDIODRIVER: dummy
-      SDL_RENDER_DRIVER: software
-      DOOM_APT_CACHE: ${{ github.workspace }}/.cache/apt-archives
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Restore Doom package cache
-        uses: actions/cache@v4
-        with:
-          path: .cache/apt-archives
-          key: doom-apt-${{ runner.os }}-v2
-
-      - name: Validate Doom program
+      - name: Validate Doom command
+        env:
+          DOOM_COMMAND: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.command || github.event.comment.body }}
         shell: bash
         run: |
           python3 - <<'PY'
@@ -64,207 +51,16 @@ jobs:
           print(f'validated Doom program: {len(tokens)} actions')
           PY
 
-      - name: Install Doom stack
-        shell: bash
-        run: |
-          mkdir -p "$DOOM_APT_CACHE/partial"
-          sudo apt-get update -qq
-          sudo apt-get \
-            -o Dir::Cache::archives="$DOOM_APT_CACHE/" \
-            install -y -qq chocolate-doom freedoom xvfb xdotool openbox imagemagick x11-utils x11-xkb-utils xkb-data
-          echo "Cached .deb packages:"
-          find "$DOOM_APT_CACHE" -maxdepth 1 -type f -name '*.deb' -printf '%f\n' | sort || true
-
-      - name: Locate Freedoom IWAD
-        shell: bash
-        run: |
-          IWAD="$(dpkg -L freedoom | grep -E '/freedoom1\.wad$' | head -n 1 || true)"
-          if [ -z "$IWAD" ]; then
-            IWAD=$(find /usr/share/games /usr/share/doom -type f -iname 'freedoom1.wad' 2>/dev/null | head -n 1 || true)
-          fi
-          [ -n "$IWAD" ] || { echo 'Freedoom IWAD not found' >&2; dpkg -L freedoom || true; exit 1; }
-          echo "IWAD=$IWAD" >> "$GITHUB_ENV"
-          echo "Using $IWAD"
-
-      - name: Start virtual display
-        shell: bash
-        run: |
-          rm -f /tmp/.X99-lock
-          rm -rf /tmp/.X11-unix/X99
-
-          start_xvfb() {
-            local extra="$1"
-            Xvfb "$DISPLAY" \
-              -screen 0 1280x720x24 \
-              -ac \
-              -nolisten tcp \
-              -xkbdir /usr/share/X11/xkb \
-              $extra \
-              >/tmp/xvfb.log 2>&1 &
-            XVFB_PID=$!
-            echo "$XVFB_PID" >/tmp/xvfb.pid
-          }
-
-          wait_for_x() {
-            for _ in $(seq 1 40); do
-              if xdpyinfo -display "$DISPLAY" >/dev/null 2>&1; then
-                return 0
-              fi
-              if ! kill -0 "$XVFB_PID" 2>/dev/null; then
-                return 1
-              fi
-              sleep 0.25
-            done
-            return 1
-          }
-
-          start_xvfb ""
-          if wait_for_x; then
-            echo "Xvfb is ready on $DISPLAY with XKB"
-            exit 0
-          fi
-
-          echo 'Normal XKB startup failed; retrying Xvfb with XKEYBOARD disabled.' >&2
-          cat /tmp/xvfb.log >&2 || true
-          kill "$XVFB_PID" 2>/dev/null || true
-          sleep 0.5
-          rm -f /tmp/.X99-lock
-          rm -rf /tmp/.X11-unix/X99
-
-          start_xvfb "-kb"
-          if wait_for_x; then
-            echo "Xvfb is ready on $DISPLAY with -kb fallback"
-            exit 0
-          fi
-
-          echo 'Xvfb did not become ready' >&2
-          cat /tmp/xvfb.log >&2 || true
-          ps -ef | grep '[X]vfb' || true
-          exit 1
-
-      - name: Start lightweight window manager
-        shell: bash
-        run: |
-          export DISPLAY="$DISPLAY"
-          nohup openbox --sm-disable >/tmp/openbox.log 2>&1 &
-          OPENBOX_PID=$!
-          echo "$OPENBOX_PID" >/tmp/openbox.pid
-          for _ in $(seq 1 40); do
-            if xprop -root _NET_SUPPORTING_WM_CHECK >/dev/null 2>&1; then
-              echo 'Openbox is running'
-              exit 0
-            fi
-            if ! kill -0 "$OPENBOX_PID" 2>/dev/null; then
-              echo 'Openbox exited during startup' >&2
-              cat /tmp/openbox.log >&2 || true
-              exit 1
-            fi
-            sleep 0.25
-          done
-          echo 'Openbox did not become ready' >&2
-          cat /tmp/openbox.log >&2 || true
-          exit 1
-
-      - name: Boot Chocolate Doom
-        shell: bash
-        run: |
-          mkdir -p /tmp/doom-home/saves
-          export HOME=/tmp/doom-home
-
-          nohup chocolate-doom \
-            -iwad "$IWAD" \
-            -window \
-            -width 1280 \
-            -height 720 \
-            -nograbmouse \
-            -nomusic \
-            -nosfx \
-            -savedir /tmp/doom-home/saves \
-            >/tmp/chocolate-doom.log 2>&1 &
-          DOOM_PID=$!
-          echo "$DOOM_PID" >/tmp/doom.pid
-
-          for _ in $(seq 1 60); do
-            if xdotool search --onlyvisible --name 'Chocolate Doom' >/dev/null 2>&1; then
-              echo 'Chocolate Doom window is ready'
-              break
-            fi
-            if ! kill -0 "$DOOM_PID" 2>/dev/null; then
-              echo 'Chocolate Doom exited during startup' >&2
-              cat /tmp/chocolate-doom.log >&2 || true
-              exit 1
-            fi
-            sleep 0.25
-          done
-
-          WINDOW=$(xdotool search --onlyvisible --name 'Chocolate Doom' | tail -n 1 || true)
-          [ -n "$WINDOW" ] || { echo 'Chocolate Doom window was not found' >&2; cat /tmp/chocolate-doom.log >&2 || true; exit 1; }
-          echo "DOOM_WINDOW=$WINDOW" >> "$GITHUB_ENV"
-          xdotool windowactivate --sync "$WINDOW"
-          echo "Doom is booted in window $WINDOW; the title screen should now be visible and focused."
-          xdotool getwindowfocus -f
-
-      - name: Execute stacked Doom inputs
-        env:
-          DOOM_COMMAND: ${{ env.DOOM_COMMAND }}
-        run: python3 scripts/doom-input.py "$DOOM_COMMAND"
-
-      - name: Capture Doom screen
-        shell: bash
-        run: |
-          sleep 0.5
-          mkdir -p linux
-          import -display "$DISPLAY" -window root -crop 1280x720+0+0 -quality 92 linux/screen.png
-          test -s linux/screen.png
-          file linux/screen.png
-
-      - name: Build GitHub-safe SVG preview
-        shell: python
-        run: |
-          import base64
-          from pathlib import Path
-          data = base64.b64encode(Path('linux/screen.png').read_bytes()).decode('ascii')
-          svg = f'''<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720"><image width="1280" height="720" href="data:image/png;base64,{data}"/></svg>'''
-          Path('linux/screen.svg').write_text(svg)
-
-      - name: Stop Doom
-        if: always()
-        shell: bash
-        run: |
-          if [ -f /tmp/doom.pid ]; then kill "$(cat /tmp/doom.pid)" 2>/dev/null || true; fi
-          if [ -f /tmp/openbox.pid ]; then kill "$(cat /tmp/openbox.pid)" 2>/dev/null || true; fi
-          if [ -f /tmp/xvfb.pid ]; then kill "$(cat /tmp/xvfb.pid)" 2>/dev/null || true; fi
-
-      - name: Update profile screen and journal
-        shell: bash
-        env:
-          CMD: ${{ env.DOOM_COMMAND }}
-        run: |
-          mkdir -p linux
-          touch linux/history.log
-          printf '%s\n' "$CMD" >> linux/history.log
-          python3 - <<'PY'
-          from pathlib import Path
-          import os
-          p = Path('README.md')
-          s = p.read_text()
-          start = '<img src="./linux/screen.svg'
-          a = s.find(start)
-          if a >= 0:
-              b = s.find('>', a)
-              s = s[:a] + '<img src="./linux/screen.svg?v=' + os.environ['GITHUB_RUN_ID'] + '" width="100%" alt="SXWIK Linux / DOOM">' + s[b+1:]
-          p.write_text(s)
-          PY
-          git config user.name 'sxwik-linux[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add README.md linux/screen.svg linux/screen.png linux/history.log
-          git diff --cached --quiet || git commit -m "doom: execute input program"
-          git push
-
-      - name: Comment result
-        if: github.event_name == 'issue_comment'
+      - name: Dispatch the Linux guest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ISSUE: ${{ github.event.issue.number }}
-          CMD: ${{ env.DOOM_COMMAND }}
-        run: gh issue comment "$ISSUE" --body "\`$CMD\` rendered in Chocolate Doom. The profile screen now shows the captured game state."
+          DOOM_COMMAND: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.command || github.event.comment.body }}
+          ISSUE: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.issue || github.event.issue.number }}
+        shell: bash
+        run: |
+          gh workflow run linux-console.yml \
+            --repo "$GITHUB_REPOSITORY" \
+            --ref main \
+            -f command="$DOOM_COMMAND" \
+            -f issue="$ISSUE"
+          echo 'Doom has been routed into the Alpine Linux guest.'
