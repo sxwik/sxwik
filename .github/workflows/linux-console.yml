@@ -22,7 +22,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  ALPINE: 'edge'
   STATE: linux-state.img
   RAM: 512M
   VIRT_NETBOOT: https://dl-cdn.alpinelinux.org/alpine/edge/releases/x86_64/netboot
@@ -99,6 +98,9 @@ jobs:
           printf '\n'
           printf 'sxwik@linux:~$ %s\n' "$CMD"
 
+          rm -f /etc/resolv.conf
+          printf 'nameserver 10.0.2.3\n' > /etc/resolv.conf
+
           is_doom=0
           case "$CMD" in
             [Dd][Oo][Oo][Mm]|[Dd][Oo][Oo][Mm]\ *) is_doom=1 ;;
@@ -113,8 +115,8 @@ jobs:
           https://dl-cdn.alpinelinux.org/alpine/edge/community
           https://dl-cdn.alpinelinux.org/alpine/edge/testing
           REPOS
-              apk update || { echo 'ERROR: Alpine package index refresh failed.' >&2; cat /etc/resolv.conf >&2 2>/dev/null || true; ip addr >&2 2>/dev/null || true; ip route >&2 2>/dev/null || true; exit 1; }
-              apk add --no-cache python3 chocolate-doom freedoom xvfb xdotool openbox imagemagick xkbcomp xkeyboard-config
+              apk update || { echo 'ERROR: Alpine package index refresh failed.' >&2; cat /etc/resolv.conf >&2 || true; exit 1; }
+              apk add python3 chocolate-doom freedoom xvfb xdotool openbox imagemagick xkbcomp xkeyboard-config || exit 1
             fi
             command -v chocolate-doom >/dev/null 2>&1 || { echo 'chocolate-doom missing' >&2; exit 1; }
             command -v Xvfb >/dev/null 2>&1 || { echo 'Xvfb missing' >&2; exit 1; }
@@ -133,17 +135,17 @@ jobs:
               sleep 1
             fi
             kill -0 "$xvfb_pid" 2>/dev/null || { cat /tmp/xvfb.log >&2 || true; exit 1; }
+
             openbox >/tmp/openbox.log 2>&1 &
             openbox_pid=$!
             sleep 0.5
 
             IWAD="$(find /usr/share /usr/local/share -type f -name 'freedoom1.wad' 2>/dev/null | head -n 1)"
-            [ -n "$IWAD" ] || { echo 'Freedoom IWAD not found' >&2; find /usr/share /usr/local/share -type f -iname '*freedoom*' 2>/dev/null | head -n 40 || true; kill "$openbox_pid" "$xvfb_pid" 2>/dev/null || true; exit 1; }
+            [ -n "$IWAD" ] || { echo 'Freedoom IWAD not found' >&2; exit 1; }
             mkdir -p /root/.doom-saves
             chocolate-doom -iwad "$IWAD" -window -width 1280 -height 720 -nograbmouse -nomusic -nosfx -savedir /root/.doom-saves >/tmp/chocolate-doom.log 2>&1 &
             doom_pid=$!
 
-            export DOOM_WINDOW=''
             python3 /root/doom-input.py "$CMD"
             input_rc=$?
             sleep 0.35
@@ -186,48 +188,30 @@ jobs:
       - name: Boot Linux and execute command
         shell: bash
         run: |
-          rm -f /tmp/qemu.in /tmp/console.log
-          mkfifo /tmp/qemu.in
-          exec 3<>/tmp/qemu.in
+          rm -f /tmp/console.log
           qemu-system-x86_64 -machine accel=tcg -cpu qemu64 -m "$RAM" \
             -kernel /tmp/vmlinuz -initrd /tmp/initramfs \
             -drive file="$STATE",format=raw,if=virtio \
             -netdev user,id=net0 -device virtio-net-pci,netdev=net0 \
-            -append 'console=ttyS0,115200n8 rdinit=/bin/sh modules=virtio_pci,virtio_blk,virtio_net,ext4' \
-            -serial stdio -display none -monitor none -no-reboot <&3 > /tmp/console.log 2>&1 &
+            -append 'console=ttyS0,115200n8 root=/dev/vda rootfstype=ext4 rootflags=rw ip=dhcp modules=virtio_pci,virtio_blk,virtio_net,ext4 init=/root/.sxwik-init.sh' \
+            -serial stdio -display none -monitor none -no-reboot > /tmp/console.log 2>&1 &
           qemu_pid=$!
-          ready=0
-          for _ in $(seq 1 60); do
-            if grep -Eq 'Run /bin/sh as init process|job control turned off' /tmp/console.log 2>/dev/null; then ready=1; break; fi
-            if ! kill -0 "$qemu_pid" 2>/dev/null; then break; fi
-            sleep 1
-          done
-          if [ "$ready" -ne 1 ]; then cat /tmp/console.log 2>/dev/null || true; kill "$qemu_pid" 2>/dev/null || true; exec 3>&-; wait "$qemu_pid" 2>/dev/null || true; exit 1; fi
-          printf 'mount -t devtmpfs devtmpfs /dev\n' >&3
-          printf 'modprobe virtio_pci 2>/dev/null || true\n' >&3
-          printf 'modprobe virtio_blk 2>/dev/null || true\n' >&3
-          printf 'modprobe virtio_net 2>/dev/null || true\n' >&3
-          printf 'modprobe ext4 2>/dev/null || true\n' >&3
-          printf 'ip link set eth0 up\n' >&3
-          printf 'udhcpc -i eth0 -q -n\n' >&3
-          printf 'mkdir -p /state\n' >&3
-          printf 'mount -t ext4 /dev/vda /state\n' >&3
-          printf 'cp /etc/resolv.conf /state/etc/resolv.conf 2>/dev/null || true\n' >&3
-          printf 'ip addr show eth0\n' >&3
-          printf 'ip route\n' >&3
-          printf 'chroot /state /root/.sxwik-init.sh\n' >&3
-          exec 3>&-
           done=0
-          for _ in $(seq 1 150); do
+          for _ in $(seq 1 180); do
             if grep -q '^SXWIK_DONE:' /tmp/console.log 2>/dev/null; then done=1; break; fi
             if ! kill -0 "$qemu_pid" 2>/dev/null; then break; fi
             sleep 1
           done
-          if [ "$done" -ne 1 ]; then cat /tmp/console.log 2>/dev/null || true; kill "$qemu_pid" 2>/dev/null || true; wait "$qemu_pid" 2>/dev/null || true; echo 'guest did not report completion' >&2; exit 1; fi
+          if [ "$done" -ne 1 ]; then
+            cat /tmp/console.log 2>/dev/null || true
+            kill "$qemu_pid" 2>/dev/null || true
+            wait "$qemu_pid" 2>/dev/null || true
+            echo 'guest did not report completion' >&2
+            exit 1
+          fi
           kill "$qemu_pid" 2>/dev/null || true
           wait "$qemu_pid" 2>/dev/null || true
-          test -s /tmp/console.log
-          tail -n 140 /tmp/console.log | tr -d '\r' > /tmp/console.tail
+          tail -n 160 /tmp/console.log | tr -d '\r' > /tmp/console.tail
           cat /tmp/console.tail
           tr -d '\r' < /tmp/console.log | grep -q '^SXWIK_DONE:0$' || { echo 'guest command failed' >&2; exit 1; }
 
@@ -256,7 +240,6 @@ jobs:
             <text x="640" y="26" text-anchor="middle" font-family="monospace" font-size="12" fill="#9aa2ad" letter-spacing="2">SXWIK LINUX :: DOOM INSIDE ALPINE</text>
           </svg>
           SVGEOF
-            cp /tmp/doom.png linux/screen.png
           else
             python - <<'PY'
           import html
@@ -268,7 +251,6 @@ jobs:
           h=max(24,len(lines)+4)
           Path('linux/screen.svg').write_text(f'''<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 {h*20+60}" width="1240" height="{h*20+60}"><rect width="100%" height="100%" rx="18" fill="#050607"/><rect x="0" y="0" width="1240" height="38" rx="18" fill="#0d0f12"/><text x="620" y="24" text-anchor="middle" class="title">SXWIK LINUX :: ttyS0</text><text x="28" y="58" class="meta">ALPINE EDGE · x86_64 · 512 MiB · QEMU · SHARED STATE</text>{rows}<style>.t{{font:14px monospace;fill:#d7dbe0;white-space:pre}}.meta{{font:11px monospace;fill:#7f8792}}.title{{font:11px monospace;fill:#9aa2ad;letter-spacing:2px}}</style></svg>''')
           PY
-            rsvg-convert -w 1240 -o linux/screen.png linux/screen.svg
           fi
 
       - name: Update profile screen and journal
@@ -284,16 +266,16 @@ jobs:
           import os
           p=Path('README.md')
           s=p.read_text()
-          start='<img src="./linux/screen.png'
+          start='<img src="./linux/screen.svg'
           a=s.find(start)
           if a>=0:
               b=s.find('>',a)
-              s=s[:a]+'<img src="./linux/screen.png?v='+os.environ['GITHUB_RUN_ID']+'" width="100%" alt="SXWIK Linux / DOOM">'+s[b+1:]
+              s=s[:a]+'<img src="./linux/screen.svg?v='+os.environ['GITHUB_RUN_ID']+'" width="100%" alt="SXWIK Linux / DOOM">'+s[b+1:]
           p.write_text(s)
           PY
           git config user.name 'sxwik-linux[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add README.md linux/screen.svg linux/screen.png linux/history.log
+          git add README.md linux/screen.svg linux/history.log
           git diff --cached --quiet || git commit -m "linux: execute $CMD"
           git push
 
@@ -310,7 +292,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
-          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" --jq '.artifacts[] | select(.name | startswith("sxwik-linux-state-")) | [.id,.created_at] | @tsv' | sort -k2 -r | tail -n +4 | cut -f1 | while read -r id; do [ -z "$id" ] || gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/$id" >/dev/null || true; done
+          gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" --jq '.artifacts[] | select(.name | startswith("sxwik-linux-state-")) | [.id,.created_at] | @tsv' | sort -k2 -r | tail -n +4 | cut -f1 | while read -r id; do
+            [ -z "$id" ] || gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/$id" >/dev/null || true
+          done
 
       - name: Comment result
         if: ${{ inputs.issue != '' }}
