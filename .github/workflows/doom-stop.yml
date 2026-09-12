@@ -1,0 +1,38 @@
+name: STOP DOOM
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  actions: write
+  issues: write
+
+jobs:
+  stop:
+    if: >-
+      github.event.issue.pull_request == null &&
+      (github.event.issue.title == '🖥️ SXWIK LINUX CONSOLE' || github.event.issue.title == 'SXWIK LINUX CONSOLE') &&
+      github.event.comment.user.type != 'Bot' &&
+      (github.event.comment.body == 'doom stop' || github.event.comment.body == 'doom-stop')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cancel active Doom runs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          runs=$(gh run list --repo "$REPO" --workflow 'doom.yml' --status in_progress --json databaseId --jq '.[].databaseId')
+          if [ -z "$runs" ]; then
+            echo 'No active Doom run.'
+          else
+            while read -r run_id; do
+              [ -n "$run_id" ] || continue
+              echo "Cancelling Doom run $run_id"
+              gh run cancel "$run_id" --repo "$REPO" || true
+            done <<< "$runs"
+          fi
+          gh issue comment "$ISSUE" --repo "$REPO" --body '🛑 Doom stopped. Any active SXWIK DOOM workflow run was cancelled.'
