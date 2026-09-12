@@ -4,11 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       command:
-        description: Guest shell command (or doom input program)
+        description: Guest shell command
         required: true
         type: string
-  issue_comment:
-    types: [created]
+      issue:
+        description: Issue number to report back to
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -28,13 +30,6 @@ env:
 
 jobs:
   run:
-    if: >-
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.command != 'doom' && !startsWith(github.event.inputs.command, 'doom ')) ||
-      (github.event_name == 'issue_comment' && github.event.issue.pull_request == null &&
-       (github.event.issue.title == '🖥️ SXWIK LINUX CONSOLE' || github.event.issue.title == 'SXWIK LINUX CONSOLE') &&
-       github.event.comment.user.type != 'Bot' &&
-       github.event.comment.body != 'doom' &&
-       !startsWith(github.event.comment.body, 'doom '))
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -46,14 +41,17 @@ jobs:
         shell: bash
         env:
           DISPATCH_COMMAND: ${{ inputs.command }}
-          COMMENT_COMMAND: ${{ github.event.comment.body }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then cmd="$DISPATCH_COMMAND"; else cmd="$COMMENT_COMMAND"; fi
+          cmd="$DISPATCH_COMMAND"
           cmd="${cmd//$'\r'/}"
           while [[ "$cmd" == *$'\n' ]]; do cmd="${cmd%$'\n'}"; done
           [[ "$cmd" != *$'\n'* ]] || { echo 'multiline commands are disabled' >&2; exit 1; }
           [ -n "${cmd//[[:space:]]/}" ] || { echo 'empty command' >&2; exit 1; }
           [ ${#cmd} -le 240 ] || { echo 'command too long' >&2; exit 1; }
+          if [[ "$cmd" =~ ^[Dd][Oo][Oo][Mm]([[:space:]]|$) ]]; then
+            echo 'doom commands must be routed through SXWIK DOOM' >&2
+            exit 1
+          fi
           printf '%s' "$cmd" > /tmp/command.txt
           echo "command=$cmd" >> "$GITHUB_OUTPUT"
 
@@ -248,9 +246,9 @@ jobs:
           gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" --jq '.artifacts[] | select(.name | startswith("sxwik-linux-state-")) | [.id,.created_at] | @tsv' | sort -k2 -r | tail -n +4 | cut -f1 | while read -r id; do [ -z "$id" ] || gh api --method DELETE "repos/${GITHUB_REPOSITORY}/actions/artifacts/$id" >/dev/null || true; done
 
       - name: Comment result
-        if: github.event_name == 'issue_comment'
+        if: ${{ inputs.issue != '' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ISSUE: ${{ github.event.issue.number }}
+          ISSUE: ${{ inputs.issue }}
           CMD: ${{ steps.command.outputs.command }}
         run: gh issue comment "$ISSUE" --body "\`$CMD\` executed in the shared Linux guest. The profile terminal is updating from the same VM state."
