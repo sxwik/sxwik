@@ -36,10 +36,17 @@ jobs:
       SDL_VIDEODRIVER: x11
       SDL_AUDIODRIVER: dummy
       SDL_RENDER_DRIVER: software
+      DOOM_APT_CACHE: ${{ github.workspace }}/.cache/apt-archives
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Restore Doom package cache
+        uses: actions/cache@v4
+        with:
+          path: .cache/apt-archives
+          key: doom-apt-${{ runner.os }}-v2
 
       - name: Validate Doom program
         shell: bash
@@ -58,10 +65,15 @@ jobs:
           PY
 
       - name: Install Doom stack
+        shell: bash
         run: |
+          mkdir -p "$DOOM_APT_CACHE/partial"
           sudo apt-get update -qq
-          sudo apt-get install -y -qq chocolate-doom freedoom xvfb xdotool openbox imagemagick x11-utils x11-xkb-utils xkb-data
-          sudo apt-get install --reinstall -y -qq xvfb xserver-common x11-xkb-utils xkb-data
+          sudo apt-get \
+            -o Dir::Cache::archives="$DOOM_APT_CACHE/" \
+            install -y -qq chocolate-doom freedoom xvfb xdotool openbox imagemagick x11-utils x11-xkb-utils xkb-data
+          echo "Cached .deb packages:"
+          find "$DOOM_APT_CACHE" -maxdepth 1 -type f -name '*.deb' -printf '%f\n' | sort || true
 
       - name: Locate Freedoom IWAD
         shell: bash
