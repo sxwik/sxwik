@@ -38,6 +38,9 @@ CLICK_BUTTONS = {
 }
 
 QUIT_ACTIONS = {"quit", "exit", "!quit", "!exit"}
+FORCE_KILL_ACTIONS = {
+    "kill", "!kill", "forcequit", "!forcequit", "force-kill", "!force-kill",
+}
 
 
 def run(*args: str) -> None:
@@ -79,6 +82,15 @@ def quit_game() -> None:
     time.sleep(0.5)
 
 
+def force_kill_game() -> None:
+    """Immediately terminate Chocolate Doom; do not use Doom's menu at all."""
+    print("SXWIK DOOM :: FORCE KILL", flush=True)
+    subprocess.run(["pkill", "-KILL", "-x", "chocolate-doom"], check=False)
+    # Be defensive if the executable is wrapped or renamed by the package.
+    subprocess.run(["pkill", "-KILL", "-f", "/chocolate-doom"], check=False)
+    time.sleep(0.25)
+
+
 def parse_count(token: str) -> tuple[str, int]:
     match = re.fullmatch(r"(.+?)(?:\*(\d+))?", token)
     if not match:
@@ -92,6 +104,12 @@ def parse_count(token: str) -> tuple[str, int]:
 def execute(token: str) -> None:
     action, count = parse_count(token)
     lower = action.lower()
+
+    if lower in FORCE_KILL_ACTIONS:
+        if count != 1:
+            raise ValueError("force kill cannot be repeated")
+        force_kill_game()
+        return
 
     if lower in QUIT_ACTIONS:
         if count != 1:
