@@ -39,13 +39,12 @@ CLICK_BUTTONS = {
 
 
 def run(*args: str) -> None:
-    """Run xdotool, targeting the Doom window where the command supports it."""
-    command = args[0] if args else ""
-    targetable = {"key", "keydown", "keyup", "type", "click", "mousemove"}
-    argv = ["xdotool", *args]
-    if WINDOW and command in targetable:
-        argv = ["xdotool", command, "--window", WINDOW, *args[1:]]
-    subprocess.run(argv, env={**os.environ, "DISPLAY": DISPLAY}, check=True)
+    """Run xdotool using XTEST so SDL/Chocolate Doom receives real X input events."""
+    subprocess.run(
+        ["xdotool", *args],
+        env={**os.environ, "DISPLAY": DISPLAY},
+        check=True,
+    )
 
 
 def hold(key: str, seconds: float = BASE_DELAY) -> None:
@@ -189,6 +188,37 @@ def find_window() -> str | None:
     return windows[-1] if windows else None
 
 
+def focus_window(window: str) -> None:
+    """Focus Doom so xdotool's XTEST events become normal SDL input events."""
+    result = subprocess.run(
+        ["xdotool", "windowactivate", "--sync", window],
+        env={**os.environ, "DISPLAY": DISPLAY},
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        result = subprocess.run(
+            ["xdotool", "windowfocus", "--sync", window],
+            env={**os.environ, "DISPLAY": DISPLAY},
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    if result.returncode != 0:
+        raise RuntimeError(f"could not focus Doom window: {result.stderr.strip()}")
+
+    focused = subprocess.run(
+        ["xdotool", "getwindowfocus", "-f"],
+        env={**os.environ, "DISPLAY": DISPLAY},
+        check=False,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
+    if focused != window:
+        raise RuntimeError(f"Doom window did not receive X focus (wanted {window}, got {focused or 'none'})")
+
+
 def main() -> int:
     if len(sys.argv) != 2:
         print("usage: doom-input.py 'doom !w !w !d !space'", file=sys.stderr)
@@ -224,13 +254,10 @@ def main() -> int:
         print("Chocolate Doom window did not appear", file=sys.stderr)
         return 1
 
-    subprocess.run(
-        ["xdotool", "windowfocus", "--sync", window],
-        env={**os.environ, "DISPLAY": DISPLAY},
-        check=False,
-    )
+    focus_window(window)
 
     print(f"Doom window: {window}")
+    print("Input transport: XTEST -> focused Doom window")
     print(f"Doom actions: {len(tokens)}")
     for i, token in enumerate(tokens, 1):
         print(f"[{i:02d}] {token}")
