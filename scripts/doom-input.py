@@ -37,6 +37,8 @@ CLICK_BUTTONS = {
     "mouse1": 1, "mouse2": 2, "mouse3": 3,
 }
 
+QUIT_ACTIONS = {"quit", "exit", "!quit", "!exit"}
+
 
 def run(*args: str) -> None:
     """Run xdotool using XTEST so SDL/Chocolate Doom receives real X input events."""
@@ -67,6 +69,16 @@ def click(button: int) -> None:
     time.sleep(0.08)
 
 
+def quit_game() -> None:
+    """Use Doom's normal menu path to quit back to the Alpine guest shell."""
+    key("escape")
+    time.sleep(0.15)
+    key("q")
+    time.sleep(0.15)
+    key("y")
+    time.sleep(0.5)
+
+
 def parse_count(token: str) -> tuple[str, int]:
     match = re.fullmatch(r"(.+?)(?:\*(\d+))?", token)
     if not match:
@@ -80,6 +92,12 @@ def parse_count(token: str) -> tuple[str, int]:
 def execute(token: str) -> None:
     action, count = parse_count(token)
     lower = action.lower()
+
+    if lower in QUIT_ACTIONS:
+        if count != 1:
+            raise ValueError("quit cannot be repeated")
+        quit_game()
+        return
 
     if lower.startswith("!wait:"):
         ms = int(lower.split(":", 1)[1])
