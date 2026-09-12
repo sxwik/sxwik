@@ -60,7 +60,7 @@ jobs:
       - name: Install Doom stack
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq chocolate-doom freedoom xvfb xdotool imagemagick x11-utils x11-xkb-utils xkb-data
+          sudo apt-get install -y -qq chocolate-doom freedoom xvfb xdotool openbox imagemagick x11-utils x11-xkb-utils xkb-data
           sudo apt-get install --reinstall -y -qq xvfb xserver-common x11-xkb-utils xkb-data
 
       - name: Locate Freedoom IWAD
@@ -130,6 +130,29 @@ jobs:
           ps -ef | grep '[X]vfb' || true
           exit 1
 
+      - name: Start lightweight window manager
+        shell: bash
+        run: |
+          export DISPLAY="$DISPLAY"
+          nohup openbox --sm-disable >/tmp/openbox.log 2>&1 &
+          OPENBOX_PID=$!
+          echo "$OPENBOX_PID" >/tmp/openbox.pid
+          for _ in $(seq 1 40); do
+            if xprop -root _NET_SUPPORTING_WM_CHECK >/dev/null 2>&1; then
+              echo 'Openbox is running'
+              exit 0
+            fi
+            if ! kill -0 "$OPENBOX_PID" 2>/dev/null; then
+              echo 'Openbox exited during startup' >&2
+              cat /tmp/openbox.log >&2 || true
+              exit 1
+            fi
+            sleep 0.25
+          done
+          echo 'Openbox did not become ready' >&2
+          cat /tmp/openbox.log >&2 || true
+          exit 1
+
       - name: Boot Chocolate Doom
         shell: bash
         run: |
@@ -165,8 +188,9 @@ jobs:
           WINDOW=$(xdotool search --onlyvisible --name 'Chocolate Doom' | tail -n 1 || true)
           [ -n "$WINDOW" ] || { echo 'Chocolate Doom window was not found' >&2; cat /tmp/chocolate-doom.log >&2 || true; exit 1; }
           echo "DOOM_WINDOW=$WINDOW" >> "$GITHUB_ENV"
-          sleep 1
-          echo "Doom is booted in window $WINDOW; the title screen should now be visible."
+          xdotool windowactivate --sync "$WINDOW"
+          echo "Doom is booted in window $WINDOW; the title screen should now be visible and focused."
+          xdotool getwindowfocus -f
 
       - name: Execute stacked Doom inputs
         env:
@@ -196,6 +220,7 @@ jobs:
         shell: bash
         run: |
           if [ -f /tmp/doom.pid ]; then kill "$(cat /tmp/doom.pid)" 2>/dev/null || true; fi
+          if [ -f /tmp/openbox.pid ]; then kill "$(cat /tmp/openbox.pid)" 2>/dev/null || true; fi
           if [ -f /tmp/xvfb.pid ]; then kill "$(cat /tmp/xvfb.pid)" 2>/dev/null || true; fi
 
       - name: Update profile screen and journal
