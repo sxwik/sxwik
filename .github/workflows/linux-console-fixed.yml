@@ -58,9 +58,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
-          url=$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" \
-            --jq '.artifacts[] | select((.name | startswith("sxwik-linux-state-")) and .expired == false) | [.created_at,.archive_download_url] | @tsv' \
-            | sort -r | head -n 1 | cut -f2-)
+          url=$(gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?per_page=100" --jq '.artifacts[] | select((.name | startswith("sxwik-linux-state-")) and .expired == false) | [.created_at,.archive_download_url] | @tsv' | sort -r | head -n 1 | cut -f2-)
           if [ -n "$url" ]; then
             mkdir -p /tmp/state
             curl -fsSL -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' "$url" -o /tmp/state.zip
@@ -85,6 +83,7 @@ jobs:
           ROOT_UUID=$(blkid -s UUID -o value "$STATE")
           [ -n "$ROOT_UUID" ] || { echo 'Could not read persistent ext4 UUID' >&2; exit 1; }
           echo "ROOT_UUID=$ROOT_UUID" >> "$GITHUB_ENV"
+          echo "Persistent root: LABEL=SXWIK UUID=$ROOT_UUID"
 
       - name: Prepare guest
         shell: bash
@@ -103,12 +102,8 @@ jobs:
           printf 'sxwik@linux:~$ %s\n' "$CMD"
           rm -f /etc/resolv.conf
           printf 'nameserver 10.0.2.3\n' > /etc/resolv.conf
-
           is_doom=0
-          case "$CMD" in
-            [Dd][Oo][Oo][Mm]|[Dd][Oo][Oo][Mm]\ *) is_doom=1 ;;
-          esac
-
+          case "$CMD" in [Dd][Oo][Oo][Mm]|[Dd][Oo][Oo][Mm]\ *) is_doom=1 ;; esac
           if [ "$is_doom" -eq 1 ]; then
             echo 'SXWIK LINUX :: Doom is running INSIDE Alpine'
             if ! command -v chocolate-doom >/dev/null 2>&1; then
@@ -140,7 +135,6 @@ jobs:
             sleep 0.35
             if printf '%s\n' "$CMD" | grep -Eiq '^doom[[:space:]]+(quit|exit)([[:space:]]|$)'; then
               touch /root/doom-quit
-              echo 'SXWIK DOOM :: normal quit requested'
             elif printf '%s\n' "$CMD" | grep -Eiq '^doom[[:space:]]+(!)?(kill|forcequit|force-kill)([[:space:]]|$)'; then
               echo 'SXWIK DOOM :: force killed'
             else
@@ -156,7 +150,6 @@ jobs:
             sh -c "$CMD"
             rc=$?
           fi
-
           printf '\nSXWIK LINUX :: syncing\n'
           sync
           printf 'SXWIK_DONE:%s\n' "$rc"
@@ -169,12 +162,13 @@ jobs:
           sudo umount /mnt/sxwik-linux
           sudo e2fsck -fy "$STATE" >/dev/null
 
-      - name: Download matching Alpine virt boot files
+      - name: Download matching Alpine LTS boot files
         run: |
-          curl -fsSL "$NETBOOT/vmlinuz-virt" -o /tmp/vmlinuz
-          curl -fsSL "$NETBOOT/initramfs-virt" -o /tmp/initramfs
+          curl -fsSL "$NETBOOT/vmlinuz-lts" -o /tmp/vmlinuz
+          curl -fsSL "$NETBOOT/initramfs-lts" -o /tmp/initramfs
           test -s /tmp/vmlinuz
           test -s /tmp/initramfs
+          ls -lh /tmp/vmlinuz /tmp/initramfs
 
       - name: Boot Linux and execute command
         shell: bash
@@ -189,7 +183,7 @@ jobs:
             -drive file="$STATE",format=raw,if=virtio \
             -netdev user,id=net0 \
             -device virtio-net-pci,netdev=net0 \
-            -append "console=ttyS0,115200n8 root=UUID=$ROOT_UUID rootfstype=ext4 rootflags=rw ip=dhcp modules=virtio_pci,virtio_blk,ext4 init=/root/.sxwik-init.sh" \
+            -append "console=ttyS0,115200n8 root=LABEL=SXWIK rootfstype=ext4 rootflags=rw ip=dhcp modules=virtio_pci,virtio_blk,ext4 init=/root/.sxwik-init.sh" \
             -serial stdio -display none -monitor none -no-reboot > /tmp/console.log 2>&1 &
           qemu_pid=$!
           done=0
@@ -206,7 +200,7 @@ jobs:
             exit 1
           fi
           wait "$qemu_pid" 2>/dev/null || true
-          tr -d '\r' < /tmp/console.log | tail -n 180 | tee /tmp/console.tail
+          tr -d '\r' < /tmp/console.log | tail -n 220 | tee /tmp/console.tail
           tr -d '\r' < /tmp/console.log | grep -q '^SXWIK_DONE:0$' || { echo 'guest command failed' >&2; exit 1; }
 
       - name: Extract guest Doom screenshot
