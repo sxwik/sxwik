@@ -11,6 +11,7 @@ import time
 
 DISPLAY = os.environ.get("DISPLAY", ":99")
 BASE_DELAY = float(os.environ.get("DOOM_KEY_DELAY", "0.12"))
+WINDOW = os.environ.get("DOOM_WINDOW")
 
 KEYS = {
     "space": "space", "enter": "Return", "return": "Return", "esc": "Escape", "escape": "Escape",
@@ -38,7 +39,13 @@ CLICK_BUTTONS = {
 
 
 def run(*args: str) -> None:
-    subprocess.run(["xdotool", *args], env={**os.environ, "DISPLAY": DISPLAY}, check=True)
+    """Run xdotool, targeting the Doom window where the command supports it."""
+    command = args[0] if args else ""
+    targetable = {"key", "keydown", "keyup", "type", "click", "mousemove"}
+    argv = ["xdotool", *args]
+    if WINDOW and command in targetable:
+        argv = ["xdotool", command, "--window", WINDOW, *args[1:]]
+    subprocess.run(argv, env={**os.environ, "DISPLAY": DISPLAY}, check=True)
 
 
 def hold(key: str, seconds: float = BASE_DELAY) -> None:
@@ -200,26 +207,23 @@ def main() -> int:
         return 2
 
     if not tokens:
-        # Bare `doom` means: boot Chocolate Doom and leave the title/home screen visible.
         tokens = ["!wait:800"]
 
     if len(tokens) > 80:
         print("too many Doom actions (max 80)", file=sys.stderr)
         return 2
 
-    window = None
-    for _ in range(30):
-        window = find_window()
-        if window:
-            break
-        time.sleep(0.25)
+    window = WINDOW
+    if not window:
+        for _ in range(30):
+            window = find_window()
+            if window:
+                break
+            time.sleep(0.25)
     if not window:
         print("Chocolate Doom window did not appear", file=sys.stderr)
         return 1
 
-    # GitHub Actions runners have no window manager. `windowactivate` therefore
-    # fails with _NET_ACTIVE_WINDOW errors. The X server already has the SDL
-    # window; use XSetInputFocus directly instead and tolerate focus refusal.
     subprocess.run(
         ["xdotool", "windowfocus", "--sync", window],
         env={**os.environ, "DISPLAY": DISPLAY},
