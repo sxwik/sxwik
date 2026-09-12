@@ -67,7 +67,9 @@ jobs:
             unzip -o /tmp/state.zip -d /tmp/state >/dev/null
             cp /tmp/state/linux-state.img "$STATE"
           else
-            curl -fsSL "$VIRT_NETBOOT/../../../releases/x86_64/alpine-minirootfs-edge-x86_64.tar.gz" -o /tmp/alpine.tar.gz
+            # Edge packages used by Doom are newer than the stable release, so the
+            # first-ever disk is seeded from the current edge minirootfs snapshot.
+            curl -fsSL "$VIRT_NETBOOT/../../../releases/x86_64/alpine-minirootfs-20260805-x86_64.tar.gz" -o /tmp/alpine.tar.gz
             qemu-img create -f raw "$STATE" 512M >/dev/null
             mkfs.ext4 -q "$STATE"
             sudo mkdir -p /mnt/sxwik-linux
@@ -107,9 +109,8 @@ jobs:
           if [ "$is_doom" -eq 1 ]; then
             echo 'SXWIK LINUX :: Doom is running INSIDE Alpine'
 
-            # Chocolate Doom is currently in Alpine edge/testing and Freedoom is
-            # in edge/community, so this guest intentionally uses one edge repo set.
-            # The packages are installed into the persistent disk only once.
+            # Chocolate Doom is in Alpine edge/testing and Freedoom is in
+            # edge/community. Keep the guest on one coherent edge repository set.
             if ! command -v chocolate-doom >/dev/null 2>&1; then
               echo 'Installing Doom stack in Alpine (first run only)...'
               cat > /etc/apk/repositories <<'REPOS'
@@ -195,7 +196,6 @@ jobs:
             input_rc=$?
             sleep 0.35
 
-            # Capture the game from the guest X server, then close Doom and return to Alpine.
             import -display "$DISPLAY" -window root -crop 1280x720+0+0 -quality 92 /root/doom.png
             kill "$doom_pid" 2>/dev/null || true
             kill "$openbox_pid" "$xvfb_pid" 2>/dev/null || true
@@ -277,7 +277,7 @@ jobs:
           printf 'mkdir -p /state\n' >&3
           printf 'mount -t ext4 /dev/vda /state\n' >&3
           printf 'cp /etc/resolv.conf /state/etc/resolv.conf 2>/dev/null || true\n' >&3
-          printf 'echo "SXWIK_NET :: $(ip -4 addr show eth0 2>/dev/null | tr "\\n" " ")"\n' >&3
+          printf 'ip addr show eth0\n' >&3
           printf 'ip route\n' >&3
           printf 'chroot /state /root/.sxwik-init.sh\n' >&3
           exec 3>&-
