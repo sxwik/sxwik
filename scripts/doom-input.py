@@ -50,8 +50,6 @@ def hold(key: str, seconds: float = BASE_DELAY) -> None:
 def key(name: str) -> None:
     mapped = KEYS.get(name.lower())
     if mapped is None:
-        # Permit raw X11/xdotool key names through !key:<name>, but keep the
-        # command language free of shell metacharacters.
         if not re.fullmatch(r"[A-Za-z0-9_+.-]+", name):
             raise ValueError(f"invalid key name: {name!r}")
         mapped = name
@@ -140,10 +138,6 @@ def execute(token: str) -> None:
             click(CLICK_BUTTONS[lower])
         return
 
-    if lower == "!screenshot":
-        run("key", "F1")
-        return
-
     if lower.startswith("!"):
         name = lower[1:]
         for _ in range(count):
@@ -151,6 +145,25 @@ def execute(token: str) -> None:
         return
 
     raise ValueError(f"unknown Doom action: {token}")
+
+
+def normalize_tokens(tokens: list[str]) -> list[str]:
+    """Accept both !left-click and the friendlier '!left click' spelling."""
+    out: list[str] = []
+    i = 0
+    click_words = {
+        ("!left", "click"): "!left-click",
+        ("!right", "click"): "!right-click",
+        ("!middle", "click"): "!middle-click",
+    }
+    while i < len(tokens):
+        if i + 1 < len(tokens) and (tokens[i].lower(), tokens[i + 1].lower()) in click_words:
+            out.append(click_words[(tokens[i].lower(), tokens[i + 1].lower())])
+            i += 2
+        else:
+            out.append(tokens[i])
+            i += 1
+    return out
 
 
 def main() -> int:
@@ -165,19 +178,20 @@ def main() -> int:
 
     payload = command[4:].strip()
     try:
-        tokens = shlex.split(payload, posix=True)
+        tokens = normalize_tokens(shlex.split(payload, posix=True))
     except ValueError as exc:
         print(f"parse error: {exc}", file=sys.stderr)
         return 2
 
     if not tokens:
-        tokens = ["!wait:800"]
+        # Boot into a fresh game: Enter opens New Game, Enter accepts the
+        # easiest skill. This makes bare `doom` visibly enter gameplay.
+        tokens = ["!enter", "!enter", "!wait:900"]
 
     if len(tokens) > 80:
         print("too many Doom actions (max 80)", file=sys.stderr)
         return 2
 
-    # Ensure the game window is focused before the first action.
     for _ in range(30):
         try:
             result = subprocess.run(
