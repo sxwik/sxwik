@@ -6,3 +6,4 @@ echo hello
 uname -a
 cat /etc/os-release
 doom
+doom
