@@ -1,7 +1,11 @@
+# SXWIK
+
 <div align="center">
 
-<a href="https://github.com/sxwik/sxwik/issues/1">
-<img src="./linux/screen.png?v=34685258506" width="100%" alt="SXWIK Linux">
-</a>
+### Linux
+
+A small Linux workspace for boot tests, smoke checks, and system experiments.
+
+[**Explore the Linux files →**](https://github.com/sxwik/sxwik/tree/main/linux)
 
 </div>
