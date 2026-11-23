@@ -24,8 +24,13 @@ jobs:
           REPO: ${{ github.repository }}
         shell: bash
         run: |
+          lower_cmd="${CMD,,}"
+          if [[ "$lower_cmd" == doom || "$lower_cmd" == doom\ * ]]; then
+            gh issue comment "$ISSUE" --body "This console is Linux-only. Submit a Linux shell command instead."
+            exit 0
+          fi
           gh api --method POST \
-            "repos/$REPO/actions/workflows/linux-console-fixed.yml/dispatches" \
+            "repos/$REPO/actions/workflows/linux-console.yml/dispatches" \
             -f ref=main \
             -f "inputs[command]=$CMD" \
             -f "inputs[issue]=$ISSUE"
